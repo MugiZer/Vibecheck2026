@@ -7,9 +7,19 @@ import json, queue, subprocess, threading
 LAUNCHER = "/home/rigged/.local/bin/roblox-studio-mcp"
 
 
-def call(tool, args=None, timeout=120):
+def call(tool, args=None, timeout=30):
     """Call one Studio MCP tool and return the JSON-RPC reply (a dict with "result" or "error").
-    Raises queue.Empty when the launcher sends nothing for `timeout` seconds."""
+    Tries twice; raises RuntimeError when the launcher sends nothing for `timeout` seconds both times
+    (Studio busy with a dialog or a place switch made it hang once)."""
+    for _ in range(2):
+        try:
+            return _call_once(tool, args, timeout)
+        except queue.Empty:
+            pass
+    raise RuntimeError("Studio did not answer: is it open in Edit mode with no dialog showing?")
+
+
+def _call_once(tool, args, timeout):
     p = subprocess.Popen([LAUNCHER], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                          stderr=subprocess.DEVNULL, text=True)
     q = queue.Queue()
