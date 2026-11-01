@@ -2,6 +2,7 @@
 #   make install    get Lean if needed, build the games and every proof, set up Python
 #   make run        start the app on http://127.0.0.1:8642 (examples play without any keys)
 #   make verify     run lake comparator on the template and upload theorems (Linux)
+#   make check      acceptance checks against the judge, runtime, and uploads (server running)
 #   make examples   rebuild the shipped example levels through the judge (Linux)
 
 PORT ?= 8642
@@ -9,7 +10,7 @@ export PORT
 export PATH := $(HOME)/.elan/bin:$(PATH)
 PY = $(shell [ -x .venv/bin/python ] && echo .venv/bin/python || echo python3)
 
-.PHONY: install run verify examples clean
+.PHONY: install run verify check examples clean
 
 install:
 	@command -v lake >/dev/null 2>&1 || { echo "Installing Lean with elan..."; \
@@ -21,13 +22,16 @@ install:
 	  echo "Note: claude-agent-sdk is not installed, so live generation is off. The examples still play."
 
 run:
-	@lake build maze upload-gate >/dev/null
+	@lake build maze sling upload-gate >/dev/null
 	@$(PY) app/server.py
 
 verify:
 	lake build
 	lake env lean Verification/Audit.lean
 	lake comparator --config Verification/comparator.json
+
+check:
+	$(PY) scripts/check.py
 
 examples:
 	$(PY) scripts/make_examples.py

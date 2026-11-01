@@ -28,6 +28,7 @@ MIME = {".html": "text/html", ".js": "text/javascript", ".css": "text/css",
         ".woff2": "font/woff2", ".txt": "text/plain"}
 
 sessions = {}
+session_lock = threading.Lock()  # a move's seq check and its update happen together
 jobs = {}
 job_lock = threading.Lock()  # one generation job at a time
 runtimes = {}
@@ -39,14 +40,25 @@ def runtime(template, op, variant, **extra):
     stateless: the full move list is replayed with the proved `run`."""
     lock = runtime_locks.setdefault(template, threading.Lock())
     with lock:
-        proc = runtimes.get(template)
-        if proc is None or proc.poll() is not None:
-            proc = subprocess.Popen([str(verify.TEMPLATES[template]["exe"]), "serve"],
-                                    stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
-            runtimes[template] = proc
-        proc.stdin.write(json.dumps({"op": op, "variant": variant, **extra}) + "\n")
-        proc.stdin.flush()
-        reply = json.loads(proc.stdout.readline())
+        for _ in range(2):  # requests are stateless, so one retry on a fresh process is safe
+            proc = runtimes.get(template)
+            if proc is None or proc.poll() is not None:
+                proc = subprocess.Popen([str(verify.TEMPLATES[template]["exe"]), "serve"],
+                                        stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+                runtimes[template] = proc
+            try:
+                proc.stdin.write(json.dumps({"op": op, "variant": variant, **extra}) + "\n")
+                proc.stdin.flush()
+                line = proc.stdout.readline()
+            except BrokenPipeError:
+                line = ""
+            if line:
+                break
+            proc.kill()  # the process died mid-request
+            runtimes.pop(template, None)
+        else:
+            raise RuntimeError(f"the {template} game process stopped twice in a row")
+        reply = json.loads(line)
     if not reply["ok"]:
         raise ValueError(reply["error"])
     return reply["result"]
@@ -146,7 +158,10 @@ class Handler(BaseHTTPRequestHandler):
         n = int(self.headers.get("Content-Length", "0"))
         if n > 1 << 20:
             raise ValueError("request too large")
-        return json.loads(self.rfile.read(n) or b"{}")
+        req = json.loads(self.rfile.read(n) or b"{}")
+        if not isinstance(req, dict):
+            raise ValueError("expected a JSON object")
+        return req
 
     def do_GET(self):
         path = urlparse(self.path).path
@@ -224,8 +239,12 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/sessions":
                 return self.start_session(self.body())
             if path.startswith("/api/sessions/") and path.endswith("/act"):
-                return self.act(path.split("/")[3], self.body())
+                with session_lock:
+                    return self.act(path.split("/")[3], self.body())
             return self.send(404, {"error": "not found"})
+        except ValueError as e:  # bad JSON, bad Content-Length, oversized body
+            self.close_connection = True  # the body may be unread
+            return self.send(400, {"error": str(e)})
         except Exception as e:
             traceback.print_exc()
             return self.send(500, {"error": str(e)})
