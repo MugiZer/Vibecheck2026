@@ -30,6 +30,14 @@ local GEM_HEIGHT = 3 -- studs from the floor to a gem's centre
 local WATCHER_BODY = { Color = Color3.fromRGB(10, 10, 10), Size = Vector3.new(1.6, 5, 0.8) } -- the watcher without the art
 local WATCHER_HEAD = { Color = Color3.fromRGB(10, 10, 10), Size = Vector3.new(1.4, 1.4, 1.2) }
 local WATCHER_EYE = { Material = Enum.Material.Neon, Color = Color3.new(1, 1, 1), Size = Vector3.new(0.3, 0.15, 0.1) }
+local MARK = { -- on the floor of a guard's next cell: faint red, as on the web page
+	Material = Enum.Material.Neon,
+	Color = Color3.fromRGB(255, 107, 127),
+	Transparency = 0.6,
+	Size = Vector3.new(6, 0.05, 6),
+	CanCollide = false,
+	CanQuery = false,
+}
 local HUM = { SoundId = "rbxassetid://9112823813", Volume = 0.06, RollOffMinDistance = 2, RollOffMaxDistance = 14 }
 local HUMS = 8 -- at most this many lights hum
 local ROOM_TONE = { SoundId = "rbxassetid://9125446564", Volume = 0.15 }
@@ -94,6 +102,21 @@ end
 
 local Scene = {}
 local ambience = false -- the room tone and the drone start at the first build and keep playing
+local drawn -- what Scene.update moves: { maze, width, gems, watchers, marks }
+
+-- Moves the scene to a reply's state: each watcher to its cell in state.guards (with PivotTo, so
+-- any look moves the same way), each mark to its guard's cell in state.guardsNext, and gem i out
+-- of view while state.collected[i] is true.
+function Scene.update(state)
+	for i, watcher in drawn.watchers do
+		local _, size = watcher:GetBoundingBox()
+		watcher:PivotTo(CFrame.new(Grid.toWorld(drawn.width, state.guards[i]) + Vector3.new(0, size.Y / 2, 0)))
+		drawn.marks[i].Position = Grid.toWorld(drawn.width, state.guardsNext[i]) + Vector3.new(0, MARK.Size.Y / 2, 0)
+	end
+	for i, gem in drawn.gems do
+		gem.Parent = if state.collected[i] then nil else drawn.maze
+	end
+end
 
 -- Draws the level detail's variant in Workspace.Maze, with the watchers on state.guards from
 -- the session start reply, and prints the [scene] line.
@@ -129,7 +152,8 @@ function Scene.build(detail, state)
 	local area = Vector3.new(width * Grid.CELL, 1, variant.height * Grid.CELL)
 	local middle = (Grid.toWorld(width, 0) + Grid.toWorld(width, cells - 1)) / 2
 	part(maze, FLOOR, { Size = area, Position = middle - Vector3.new(0, 0.5, 0) })
-	part(maze, CEILING, { Size = area, Position = middle + Vector3.new(0, Grid.WALL_HEIGHT + 0.5, 0) })
+	-- named, so the client's map view can take it out of its own view
+	part(maze, CEILING, { Name = "Ceiling", Size = area, Position = middle + Vector3.new(0, Grid.WALL_HEIGHT + 0.5, 0) })
 
 	-- A light on every second open cell: a checkerboard, so every second cell along any corridor.
 	-- Our SurfaceLight is the only light; the art has none (the decor gate rejects lights).
@@ -159,24 +183,27 @@ function Scene.build(detail, state)
 
 	local exitAt = Grid.toWorld(width, variant.exit) + Vector3.new(0, EXIT.Size.Y / 2, 0)
 	new("PointLight", part(maze, EXIT, { Position = exitAt }), EXIT_LIGHT)
+	drawn = { maze = maze, width = width, gems = {}, watchers = {}, marks = {} }
 	for _, c in variant.gems do -- in the order of variant.gems, which state.collected follows
 		local gemAt = Grid.toWorld(width, c) + Vector3.new(0, GEM_HEIGHT, 0)
-		new("PointLight", part(maze, GEM, { Position = gemAt }), GEM_LIGHT)
+		local gem = part(maze, GEM, { Position = gemAt })
+		new("PointLight", gem, GEM_LIGHT)
+		table.insert(drawn.gems, gem)
 	end
 
-	-- One watcher per guard, standing on its cell in state.guards. Every look is a Model moved
-	-- with PivotTo, so any look moves the same way.
-	for _, c in state.guards do
+	-- One watcher and one mark per guard; Scene.update stands them on the state's cells.
+	for _ in state.guards do
 		local watcher = artClone("Watcher") or plainWatcher()
 		for _, d in watcher:GetDescendants() do
 			if d:IsA("BasePart") then
 				d.CanCollide, d.CanTouch, d.CanQuery = false, false, false
 			end
 		end
-		local _, size = watcher:GetBoundingBox()
-		watcher:PivotTo(CFrame.new(Grid.toWorld(width, c) + Vector3.new(0, size.Y / 2, 0)))
 		watcher.Parent = maze
+		table.insert(drawn.watchers, watcher)
+		table.insert(drawn.marks, part(maze, MARK))
 	end
+	Scene.update(state)
 
 	if not ambience then
 		ambience = true
