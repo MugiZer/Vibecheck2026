@@ -124,4 +124,9 @@ def solveJson (v : Variant) : Json := Id.run do
     ("cycle", toJson v.cycle),
     ("leanHints", Json.mkObj hints)]
 
+/-- Run `Maze.checkRegions`, the check `maze_regions_sound` is about, on the
+cells Show why paints (one list of cells per turn of the guards' cycle). -/
+def checkJson (v : Variant) (cells : List (List Nat)) : Json :=
+  Json.mkObj [("passes", toJson (checkRegions v (cells.map maskOfList)))]
+
 end MazeRuntime

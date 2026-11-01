@@ -14,6 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "app"))
 import verify  # noqa: E402
+import server  # noqa: E402  (for MAZE_CAPTIONS; importing it starts nothing)
 
 ROOT = verify.ROOT
 failures = 0
@@ -102,6 +103,33 @@ s2, _ = http("POST", f"/api/sessions/{sid}/act", json.dumps({"seq": 0, "action":
 check("a retried move with a stale sequence number is not applied twice", s1 == 200 and s2 == 409, f"{s1} {s2}")
 s3, _ = http("POST", f"/api/sessions/{sid}/act", json.dumps({"seq": 1, "action": "teleport"}).encode())
 check("the runtime refuses a move the rules do not have", s3 == 400, str(s3))
+
+# --- Show why: the painted cells are checked by Lean each time a level opens ---
+status, body = http("GET", f"/api/artifacts/{vault['id']}")
+rv = body.get("reveal") or {}
+lean_check = rv.get("check") or {}
+check("Show why's painted cells pass the runtime's checkRegions, with the coordinator's passing caption",
+      status == 200 and lean_check.get("passes") is True
+      and (lean_check.get("caption") or "").startswith(server.MAZE_CAPTIONS["passed"]), f"{status} {lean_check}")
+check("the level reply has no matchesProof and no regionCells",
+      status == 200 and "matchesProof" not in rv and "regionCells" not in rv, str(sorted(rv)))
+cells = vault["reveal"]["cellsByTurn"]
+bad = [[c for c in cells[0] if c != v["start"]]] + cells[1:]
+try:
+    refused, err = verify.runtime("maze", "check", v, cellsByTurn=bad)["passes"] is False, ""
+except Exception as e:  # an old binary answers "unknown op check": print FAIL, not a traceback
+    refused, err = False, str(e)
+bad_dir = verify.ARTIFACTS / "bad-cells-check"  # the vault with the damaged cells, opened through the coordinator
+bad_dir.mkdir(parents=True, exist_ok=True)
+try:  # never leave the fake level in the list, even if the request fails
+    (bad_dir / "manifest.json").write_text(json.dumps({**vault, "id": bad_dir.name, "reveal": {**vault["reveal"], "cellsByTurn": bad}}))
+    status, body = http("GET", f"/api/artifacts/{bad_dir.name}")
+finally:
+    shutil.rmtree(bad_dir)
+bad_check = (body.get("reveal") or {}).get("check") or {}
+check("the runtime's check refuses the painted cells without the start cell, and the coordinator shows its failed caption",
+      refused and bad_check.get("passes") is False and bad_check.get("caption") == server.MAZE_CAPTIONS["failed"],
+      f"{err} {status} {bad_check}")
 
 # --- uploads through the real HTTP endpoint ----------------------------------
 uploads = verify.BUILD / "data" / "uploads"

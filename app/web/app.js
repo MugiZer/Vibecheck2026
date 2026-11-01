@@ -139,9 +139,11 @@ function drawMaze(revealTurn) {
   let guards = st ? st.guards : v.guards.map((r) => r[0]);
   let next = st ? st.guardsNext : [];
   if (revealTurn !== undefined) {
-    const cells = ui.art.reveal.cellsByTurn[revealTurn] || [];
-    ctx.fillStyle = "rgba(94,230,160,.33)";
-    for (const c of cells) { const [x, y] = xy(c); ctx.fillRect(x + 2, y + 2, size - 4, size - 4); }
+    if (ui.art.reveal.check && ui.art.reveal.check.passes) {
+      const cells = ui.art.reveal.cellsByTurn[revealTurn] || [];
+      ctx.fillStyle = "rgba(94,230,160,.33)";
+      for (const c of cells) { const [x, y] = xy(c); ctx.fillRect(x + 2, y + 2, size - 4, size - 4); }
+    }
     guards = v.guards.map((r) => r[revealTurn % r.length]);
     next = [];
   }
@@ -157,7 +159,7 @@ function drawMaze(revealTurn) {
     ctx.fillText(ch, x + size / 2, y + size / 2 + size * .04);
     ctx.globalAlpha = 1;
   };
-  glyph(v.exit, p.exit, .66, 1, "rgba(94,230,160,.35)");
+  glyph(v.exit, p.exit, .66, 1, revealTurn === undefined ? "rgba(94,230,160,.35)" : null);  // no green disc in Show why: the caption says the exit never glows
   if (revealTurn !== undefined) {
     const [x, y] = xy(v.exit);
     ctx.strokeStyle = "#ff6b7f"; ctx.lineWidth = 3; ctx.strokeRect(x + 3, y + 3, size - 6, size - 6);
@@ -179,11 +181,9 @@ $("reveal").onclick = () => {
   note.hidden = false;
   if (art.template === "sling") return window.Sling && window.Sling.reveal(note);
   const rv = art.reveal;
-  if (rv.cellsByTurn) {
+  if (rv.check) {
     let t = 0;
-    note.textContent = `Green cells are everywhere you could ever stand, turn by turn through the guards' ${rv.cycle}-turn cycle. ` +
-      `From every green cell, every move either gets you caught or lands on a green cell. The exit (red) is never green, so no sequence of moves can reach it.` +
-      (rv.matchesProof ? " These are the exact cell sets in the checked proof." : " The proof checked a set like this one.");
+    note.textContent = rv.check.caption;
     $("reveal").textContent = "Stop";
     const tick = () => { drawMaze(t); t = (t + 1) % rv.cycle; };
     tick();

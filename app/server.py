@@ -28,6 +28,15 @@ MIME = {".html": "text/html", ".js": "text/javascript", ".css": "text/css",
         ".png": "image/png", ".json": "application/json", ".svg": "image/svg+xml",
         ".woff2": "font/woff2", ".txt": "text/plain"}
 
+# The maze Show why caption, written only here; every renderer shows reveal.check.caption.
+MAZE_CAPTIONS = {
+    "passed": ("Lean ran checkRegions on exactly these cells, and it passed. The checked theorem "
+               "maze_regions_sound says that when this check passes, no sequence of moves wins. "
+               "The exit never glows."),
+    "failed": "Lean's check did not pass on these cells, so they show nothing.",
+    "unchecked": "Lean has not checked these cells, so they show nothing.",
+}
+
 sessions = {}
 session_lock = threading.Lock()  # a move's seq check and its update happen together
 jobs = {}
@@ -193,6 +202,17 @@ class Handler(BaseHTTPRequestHandler):
                 files = {f: (d / f).read_text() for f in
                          ["UserSpec.lean", "Candidate.lean", "Challenge.lean", "Solution.lean",
                           "comparator.json", "comparator.log"] if (d / f).exists()}
+                rv = man.get("reveal") or {}
+                rv.pop("matchesProof", None)  # the old Python substring test; no renderer may read it
+                rv.pop("regionCells", None)
+                if man["template"] == "maze" and rv.get("cellsByTurn"):
+                    try:
+                        check = runtime("maze", "check", man["variant"], cellsByTurn=rv["cellsByTurn"])
+                    except Exception as e:  # an old or stopped runtime must not stop the level from opening
+                        check = {"passes": False, "error": str(e)}
+                    check["caption"] = MAZE_CAPTIONS["unchecked" if "error" in check else
+                                                     "passed" if check["passes"] else "failed"]
+                    rv["check"] = check
                 return self.send(200, {**{k: v for k, v in man.items() if k != "dir"}, "files": files})
             if path.startswith("/api/jobs/"):
                 job = jobs.get(path.rsplit("/", 1)[1])
