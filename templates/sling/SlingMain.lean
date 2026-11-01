@@ -10,6 +10,7 @@ import SlingRuntime.Json
   flight. A shot the level does not allow is refused, so play stays inside
   `Sling.shots`, the set the proofs cover.
 * `{"op":"solve","variant":V}` reports every shot's outcome (untrusted search).
+* `{"op":"drawing","variant":V}` returns where flights start and the cell size.
 * `{"op":"lean","variant":V}` prints the `Candidate` module for the level.
 -/
 
@@ -26,6 +27,7 @@ def handle (req : Json) : Except String Json := do
       | none => throw s!"bad shot {n}"
     return stateJson v launched
   | "solve" => return solveJson v
+  | "drawing" => return drawingJson v
   | "lean" =>
     if (problems v).isEmpty then return toJson (candidateModule v)
     else throw s!"level is not well formed: {problems v}"

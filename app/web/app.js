@@ -136,13 +136,14 @@ function drawMaze(revealTurn) {
     if (walls.has(c)) { ctx.fillStyle = "rgba(255,255,255,.06)"; ctx.fillRect(x, y, size, 3); }
     else { ctx.strokeStyle = "rgba(255,255,255,.04)"; ctx.strokeRect(x + .5, y + .5, size - 1, size - 1); }
   }
-  let guards = st ? st.guards : v.guards.map((r) => r[0]);
+  const guardsByTurn = (ui.art.drawing || {}).guardsByTurn || [];  // from the Lean runtime; none if it is missing
+  let guards = st ? st.guards : guardsByTurn[0] || [];
   let next = st ? st.guardsNext : [];
   if (revealTurn !== undefined) {
     const cells = ui.art.reveal.cellsByTurn[revealTurn] || [];
     ctx.fillStyle = "rgba(94,230,160,.33)";
     for (const c of cells) { const [x, y] = xy(c); ctx.fillRect(x + 2, y + 2, size - 4, size - 4); }
-    guards = v.guards.map((r) => r[revealTurn % r.length]);
+    guards = guardsByTurn[revealTurn] || [];
     next = [];
   }
   const glyph = (c, ch, scale = .72, alpha = 1, disc = null) => {

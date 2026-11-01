@@ -81,6 +81,42 @@ check("judge rejects native_decide", not ok and "comparator rejected" in diag, d
 ok, diag = judged("maze", vault_spec, orchard["variant"], vault_proof, "other-level")
 check("judge rejects a proof checked against a different level", not ok, diag[:200])
 
+# --- what renderers draw from: the runtime's drawing op -----------------------
+status, body = http("GET", f"/api/artifacts/{vault['id']}")
+guards_by_turn = (body.get("drawing") or {}).get("guardsByTurn") or []
+vault_reveal = body.get("reveal") or {}
+check("The Museum Vault's drawing has one list of guard cells per turn of the Show why cycle",
+      status == 200 and len(guards_by_turn) == vault_reveal.get("cycle") == len(vault_reveal.get("cellsByTurn") or []),
+      f"{status}: {len(guards_by_turn)} turns drawn, cycle {vault_reveal.get('cycle')}, "
+      f"{len(vault_reveal.get('cellsByTurn') or [])} turns of cells")
+
+
+def drawn_as_played(state):
+    """The drawing's guard cells for this state's turn are the runtime's own state.guards."""
+    t = state.get("turn")
+    return isinstance(t, int) and 0 <= t < len(guards_by_turn) and guards_by_turn[t] == state.get("guards")
+
+
+status, body = http("POST", "/api/sessions", json.dumps({"artifactId": vault["id"]}).encode())
+sid, state = body.get("sessionId"), body.get("state") or {}
+turns = [state.get("turn")]
+agree = status == 200 and state.get("turn") == 0 and drawn_as_played(state)
+for seq in range(len(guards_by_turn)):  # stay once per turn of the cycle, ending back on turn 0
+    status, body = http("POST", f"/api/sessions/{sid}/act", json.dumps({"seq": seq, "action": "stay"}).encode())
+    state = body.get("state") or {}
+    if status != 200 or state.get("status") != "playing":
+        break
+    turns.append(state["turn"])
+    agree = agree and drawn_as_played(state)
+check("the drawing's guard cells equal the runtime's state.guards on every turn played",
+      agree and len(turns) > 1, f"turns {turns}")
+
+keyhole, _, _ = example("The Keyhole")
+status, body = http("GET", f"/api/artifacts/{keyhole['id']}")
+drawing = body.get("drawing") or {}
+check("The Keyhole's drawing: 64 units per cell, and every flight starts at [96, 32]",
+      status == 200 and drawing.get("cellSize") == 64 and drawing.get("launchPoint") == [96, 32], f"{status} {drawing}")
+
 # --- identities and freshness ---------------------------------------------
 check("the runtime prints exactly the judged level for every published level",
       all(verify.sha(verify.runtime(m["template"], "lean", m["variant"])) == m["candidateHash"] for m in verify.published()))

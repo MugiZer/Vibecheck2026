@@ -188,6 +188,11 @@ class Handler(BaseHTTPRequestHandler):
                 man = artifacts().get(path.rsplit("/", 1)[1])
                 if not man:
                     return self.send(404, {"error": "no such level"})
+                if man["current"]:  # a stale level cannot be played, and its variant may not parse
+                    try:  # what renderers draw from, computed by the Lean runtime
+                        man["drawing"] = runtime(man["template"], "drawing", man["variant"])
+                    except Exception:  # e.g. a game process started before a rebuild: "unknown op drawing"
+                        pass  # leave drawing out; the level still opens
                 d = Path(man["dir"])
                 files = {f: (d / f).read_text() for f in
                          ["UserSpec.lean", "Candidate.lean", "Challenge.lean", "Solution.lean",
