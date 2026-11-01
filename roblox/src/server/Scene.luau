@@ -390,17 +390,28 @@ function Scene.build(detail, state)
 	end
 
 	-- One watcher and one mark per guard; Scene.update stands them on the state's cells. The look is
-	-- the level's decor watcher if it passes the check, else the art watcher, else the plain stack.
+	-- the level's decor watcher if it passes the check, else the cached look that the brief names
+	-- ("watcher: <name>", lowercased, up to ; or . or the end; only ever a folder name), else the
+	-- art watcher, else the plain stack.
 	local lookModel = goodModels(levelDecor, "watcher")[1]
+	local key = string.match(string.lower(tostring(detail.brief or "")), "watcher:%s*([^;%.\n]*)")
+	key = key and string.match(key, "^(.-)%s*$")
+	local looks = dress and dress:FindFirstChild("Looks")
+	local cached = key and key ~= "" and looks and looks:FindFirstChild(key)
 	local look = "plain" -- which look the watchers got, for the log
 	for _ in state.guards do
 		local watcher = lookModel and checkedClone(lookModel)
 		if watcher then
 			look = "decor"
 		else
-			watcher = artClone("Watcher")
+			watcher = cached and checkedClone(cached)
 			if watcher then
-				look = "art"
+				look = "looks:" .. key
+			else
+				watcher = artClone("Watcher")
+				if watcher then
+					look = "art"
+				end
 			end
 		end
 		watcher = watcher or plainWatcher()
