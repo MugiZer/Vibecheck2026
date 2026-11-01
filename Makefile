@@ -1,7 +1,7 @@
 # Rigged Arcade
 #   make install    get Lean if needed, build the games and every proof, set up Python
 #   make run        start the app on http://127.0.0.1:8642 (examples play without any keys)
-#   make verify     run lake comparator on the template and upload theorems (Linux)
+#   make verify     run lake comparator on the template, upload, and decor theorems (Linux)
 #   make check      acceptance checks against the judge, runtime, and uploads (server running)
 #   make examples   rebuild the shipped example levels through the judge (Linux)
 

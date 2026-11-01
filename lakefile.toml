@@ -1,6 +1,6 @@
 name = "rigged"
 version = "0.1.0"
-defaultTargets = ["Maze", "MazeRuntime", "maze", "Sling", "sling", "Upload", "UploadSpec", "upload-gate", "Verification"]
+defaultTargets = ["Maze", "MazeRuntime", "maze", "Sling", "sling", "Upload", "UploadSpec", "upload-gate", "Decor", "DecorSpec", "Verification"]
 
 # Maze template: rules, specs, and the certificate checker. No `import Lean`.
 [[lean_lib]]
@@ -29,6 +29,18 @@ roots = ["Upload.Store"]
 name = "UploadSpec"
 srcDir = "Specs"
 roots = ["UploadSpec.Destination", "UploadSpec.Limit", "UploadSpec.Proofs"]
+
+# Decor gate: may a fetched model go into the scene? No `import Lean`.
+[[lean_lib]]
+name = "Decor"
+srcDir = "app/decor"
+roots = ["Decor.Gate"]
+
+# Readable decor-safety specs and their proofs.
+[[lean_lib]]
+name = "DecorSpec"
+srcDir = "Specs"
+roots = ["DecorSpec.Safe", "DecorSpec.Proofs"]
 
 [[lean_exe]]
 name = "upload-gate"

@@ -87,6 +87,19 @@ Repository theorems, judged by `lake comparator` (see `Verification/`):
 | `upload_never_over_limit` | The bytes the gate lets through never add up to more than the limit, for any chunking. |
 | `upload_accepted_iff_within_limit` | An upload is accepted exactly when it fits: the limit is accepted, one byte more is rejected. |
 | `upload_accepted_writes_everything` | An accepted upload is written in full, in order. |
+| `decor_only_allowed_classes` | In an accepted model, every instance at every level has a class from the allowlist. |
+| `decor_no_bad_classes` | An accepted model holds none of 59 classes from the threat list: no script, explosion, seat, spawn, prompt, text, sound, light, effect or special mesh. |
+| `decor_top_is_model` | The top instance of an accepted model is a Model. |
+| `decor_parts_are_inert` | Every part in an accepted model is anchored, with collisions, touch events and queries off. |
+| `decor_parts_stay_in_box` | Every part in an accepted model is inside the slot box. |
+| `decor_humanoids_show_nothing` | Every Humanoid in an accepted model shows no name and no health bar. |
+| `decor_within_limits` | An accepted model has at most 500 instances and at most 8 levels. |
+| `decor_ignores_names` | Two models that differ only in names get the same answer. |
+| `decor_accepts_safe_decor` | Every model that meets the rules is accepted, so the gate is not "always no". |
+| `decor_smaller_stays_accepted` | Deleting instances from an accepted model keeps it accepted. `Clone()` deletes instances that are not `Archivable`. |
+| `decor_id_is_digits_only` | An accepted asset id has 1 to 19 characters, all digits 0–9. So it has no quote, bracket or line break. |
+
+The decor gate is proved and judged here, but the Roblox place does not use it yet.
 
 Per published level, one theorem `accepted` about that exact level:
 
