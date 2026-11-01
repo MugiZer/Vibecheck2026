@@ -57,6 +57,10 @@ _Avoid_: assets, items (alone), furniture
 The Lean program that decides whether one fetched decor model may enter the scene, from the instance tree the Roblox place reports.
 _Avoid_: sanitizer, filter, scanner
 
+**Dress step**:
+`make dress`. With Studio in Edit mode, before Play, it fills the pool `ServerStorage.DressPool` in the open place with the art kit and each level's decor. It removes every class the decor gate does not allow from each model, and keeps a model only if the gate accepts it. The pool is lost when the place closes, so run it again each time Studio opens the place.
+_Avoid_: import, insert step
+
 **Show why**:
 The view that draws a level's proof evidence: the cells that pass Lean's region check on each guard turn; until a guard catches you, you are always on one (maze), or every allowed shot's flight (slingshot).
 _Avoid_: reveal (in UI text), explanation
