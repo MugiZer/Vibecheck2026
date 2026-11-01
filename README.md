@@ -2,29 +2,24 @@
 
 **Every level ships with a proof. Some are fair. Some are rigged. Lean knows which.**
 
-Pick a game, pick what you want to be true about it ("impossible, but looks
-winnable", "exactly one shot wins", or your own Lean statement), and describe
-it in a sentence. Claude designs the level. Lean checks a proof about the exact
+Pick what you want to be true about a maze ("impossible, but looks
+winnable", "can be won", or your own Lean statement), and describe it in a
+sentence. Claude designs the level. Lean checks a proof about the exact
 level you then play. Try to beat a rigged level, then press **Show why**: in
-the maze, the game lights the cells that pass Lean's region check, turn by
-turn; until a guard catches you, you are always on a lit cell, and the exit
-is never lit; in the slingshot, it draws every shot you could take, and none
-of them hits.
+the game lights the cells that pass Lean's region check, turn by turn;
+until a guard catches you, you are always on a lit cell, and the exit is
+never lit.
 
-Two games:
-
-- **Maze** (turn-based): collect the gems, reach the exit, dodge guards that
-  walk fixed loops. You move one cell (or wait), then every guard steps.
-- **Slingshot** (physics): pick an angle and a power, launch, hit the target.
-  The physics is integer Lean code; the art is from the MIT-licensed
-  [Angry Aliens](https://github.com/feliperyba/angry-aliens-phaser).
+The game is a turn-based maze: reach the exit (after any gems), and dodge
+guards that walk fixed loops. You move one cell (or wait), then every guard
+steps.
 
 ```sh
 make install && make run      # then open http://127.0.0.1:8642
 ```
 
 `make install` gets Lean through [elan](https://github.com/leanprover/elan)
-if needed, builds both games and every proof, and installs the Claude Agent
+if needed, builds the game and every proof, and installs the Claude Agent
 SDK into `.venv`. The shipped levels play without any keys or network.
 Live generation also needs Linux with `bubblewrap` (the proof sandbox) and
 `ANTHROPIC_API_KEY`; the page shows whether both are ready. On Windows, run
@@ -35,7 +30,7 @@ it inside WSL.
 ```
 browser ──HTTP──> coordinator (app/server.py, Python stdlib)
                     ├─ upload gate (Lean exe): stores and size-limits uploads
-                    ├─ game runtimes (Lean exes: maze, sling): every move or shot
+                    ├─ game runtime (Lean exe: maze): every move
                     ├─ agent (app/agent.py, Claude Agent SDK) ─ tools ─┐
                     │      try_level: runtime checks + search hints    │
                     │      submit:    send level + proof to the judge  │
@@ -71,10 +66,6 @@ The rules are executable Lean, and the same functions are what the game runs.
 - Maze: each move you make is replayed with `Maze.run`, the function the
   theorems are about. The browser holds no rules; it draws the state the
   runtime returns.
-- Slingshot: each launch is flown by `Sling.flight`, and the browser only
-  animates the returned positions. The runtime refuses any angle or power the
-  level does not offer, so play stays inside `Sling.shots`, the set the proofs
-  cover.
 
 ## What is proved
 
@@ -112,15 +103,12 @@ Per published level, one theorem `accepted` about that exact level:
   cells per turn of the guards' cycle) checked by the kernel with bit
   arithmetic, plus `maze_regions_sound`.
 - **Maze, fair**: `Maze.Winnable`, with a winning move list replayed by the kernel.
-- **Slingshot**: `Sling.Unwinnable` / `Sling.ExactlyOneWinningShot` /
-  `Sling.Winnable`, decided by flying every allowed shot in the kernel, and
-  `Sling.Playable`: with the blocks removed, some shot would hit.
 
 Each spec file comes with concrete examples that meet its hypotheses and
 examples of bad behaviour it rejects (`Specs/UploadSpec/Proofs.lean`), and
 `make verify` lists the definitions each main theorem depends on, which is
 the surface to review: `templates/maze/Maze/Game.lean` and `Spec.lean`,
-`templates/sling/Sling/Game.lean` and `Spec.lean`, `app/upload/Upload/Store.lean`,
+`app/upload/Upload/Store.lean`,
 `Specs/UploadSpec/`.
 
 ## What is trusted
@@ -129,9 +117,7 @@ the surface to review: `templates/maze/Maze/Game.lean` and `Spec.lean`,
   No `sorry`, no `native_decide`, no new axioms (`make check` confirms the judge
   rejects each).
 - **The definitions in the statements.** A theorem means only what they say:
-  for example "caught" means a guard lands on your cell or you swap cells;
-  slingshot physics is whole-number units, gravity 2, falling speed capped at
-  48, flights capped at 160 ticks.
+  for example "caught" means a guard lands on your cell or you swap cells.
 - **The Lean compiler, while you play.** The running game is compiled code of
   the proved functions. The kernel checked the theorems about those functions.
 - **Not proved:** the JSON adapters, the Python coordinator, HTTP, the browser
@@ -156,7 +142,6 @@ against your uploaded requirement", with its text.
 - The maze certificate ignores gems, so a rigged maze must cut off the exit
   itself. Search failing to find a win is never presented as a proof.
 - The maze is turn-based by design; the proof covers that model, not real-time play.
-- One slingshot target; a level's controls are a fixed grid of angles and powers.
 - One generation job at a time, with a time and cost budget. Running out of
   budget is reported as such; it is not a proof that a request is impossible.
 - The judge needs Linux (`lake comparator` sandboxes with `bwrap`).
@@ -164,7 +149,7 @@ against your uploaded requirement", with its text.
 ## Commands
 
 ```sh
-make install    # Lean, both games, all proofs, Python env
+make install    # Lean, the game, all proofs, Python env
 make run        # the app on :8642
 make verify     # axioms + trusted definitions per theorem, then lake comparator on Verification/
 make check      # acceptance checks against the judge, runtime, and upload endpoint (server running)
@@ -175,7 +160,6 @@ make examples   # rebuild the shipped levels through the judge
 
 ```
 templates/maze/      Maze/Game.lean (rules) · Spec.lean · Cert.lean (certificate + soundness) · runtime · GUIDE.md
-templates/sling/     Sling/Game.lean (physics) · Spec.lean · runtime · GUIDE.md
 app/upload/          Upload/Store.lean (storage decision, size limit) · UploadGate.lean (the gate)
 Specs/UploadSpec/    readable upload specs and their proofs
 Verification/        repository challenge, solution, audit
