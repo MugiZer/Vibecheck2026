@@ -58,5 +58,5 @@ The Lean program that decides whether one fetched decor model may enter the scen
 _Avoid_: sanitizer, filter, scanner
 
 **Show why**:
-The view that draws a level's proof evidence: the cells that pass Lean's region check on each guard turn (maze), or every allowed shot's flight (slingshot).
+The view that draws a level's proof evidence: the cells that pass Lean's region check on each guard turn; until a guard catches you, you are always on one (maze), or every allowed shot's flight (slingshot).
 _Avoid_: reveal (in UI text), explanation

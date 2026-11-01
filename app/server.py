@@ -30,9 +30,9 @@ MIME = {".html": "text/html", ".js": "text/javascript", ".css": "text/css",
 
 # The maze Show why caption, written only here; every renderer shows reveal.check.caption.
 MAZE_CAPTIONS = {
-    "passed": ("Lean ran checkRegions on exactly these cells, and it passed. The checked theorem "
-               "maze_regions_sound says that when this check passes, no sequence of moves wins. "
-               "The exit never glows."),
+    "passed": ("Until a guard catches you, you are always on a glowing cell, and the exit never glows. "
+               "Lean ran checkRegions on exactly these cells, and it passed, so the checked theorem "
+               "maze_never_leaves_regions applies."),
     "failed": "Lean's check did not pass on these cells, so they show nothing.",
     "unchecked": "Lean has not checked these cells, so they show nothing.",
 }

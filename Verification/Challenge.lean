@@ -68,3 +68,11 @@ theorem decor_smaller_stays_accepted : DecorSpec.SmallerStaysAccepted := sorry
 
 /-- Decor: An accepted asset id has 1 to 19 characters, all digits 0–9. So it has no quote, bracket or line break. -/
 theorem decor_id_is_digits_only : DecorSpec.IdIsDigitsOnly := sorry
+
+/-- Maze: Show why paints one list of cells for each turn of the guards' cycle.
+If those lists pass `checkRegions`, then after any list of moves, while the game
+is still on, the player stands on a cell of the list for the current turn. -/
+theorem maze_never_leaves_regions (v : Maze.Variant) (cells : List (List Nat))
+    (h : Maze.checkRegions v (cells.map Maze.maskOfList) = true)
+    (moves : List Maze.Move) (hplay : (Maze.run v moves).status = .playing) :
+    (Maze.run v moves).pos ∈ cells.getD (Maze.run v moves).turn [] := sorry
