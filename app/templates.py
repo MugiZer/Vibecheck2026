@@ -82,9 +82,9 @@ MAZE = {
                               {"title": "Untitled level", "player": "🦊", "guard": "👹", "gem": "💎", "exit": "🚪",
                                "wall": "#3b3355", "floor": "#17142b"}),
     "claims": {
-        "unwinnable": ("Proved: no sequence of moves wins this level. Also proved: it looks winnable, "
-                       "because with the guards removed a route collects every gem and reaches the exit."),
-        "winnable": "Proved: this level can be won. Lean replayed a winning route on the real rules.",
+        "unwinnable": ("Proved: no sequence of moves gets you out of this maze. Also proved: it looks "
+                       "escapable, because with the watchers removed a route reaches the exit."),
+        "winnable": "Proved: you can get out of this maze. Lean replayed a way out on the real rules.",
     },
     "scope": ("Turn-based: you move one cell or wait, then every guard takes one step along its loop. "
               "You are caught if a guard lands on you or you swap places. The proof covers every "

@@ -91,11 +91,11 @@ function showTab() {
 
 // ---------- levels ----------
 async function loadLevels(selectId) {
-  const arts = (await api("/api/artifacts")).filter((a) => a.template === "maze");
+  const arts = await api("/api/artifacts");
   ui.levels = arts;
   $("level").innerHTML = arts.map((a, i) => {
     const k = KIND[a.label] || ["custom"];
-    return `<option value="${a.id}">Backrooms ${i + 1} · ${k[0]}${a.example ? " · example" : ""}</option>`;
+    return `<option value="${a.id}">${esc(a.title)} · ${k[0]}${a.example ? " · example" : ""}</option>`;
   }).join("");
   const pick = selectId || (ui.art && ui.art.id) || (arts[0] && arts[0].id);
   if (pick) await openLevel(pick);

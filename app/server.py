@@ -14,6 +14,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
 
+import templates
 import verify
 
 ROOT = verify.ROOT
@@ -86,9 +87,21 @@ def artifacts():
     return found
 
 
+def backrooms_names():
+    """Every level is a room of the Backrooms: "Backrooms 1", "Backrooms 2", ... in list order. The
+    story names in the manifests stay on disk (scripts/check.py finds examples by them); no page shows them."""
+    arts = sorted(artifacts().values(), key=lambda m: (not m["example"], m["created"]))
+    return {m["id"]: f"Backrooms {i}" for i, m in enumerate(arts, 1)}
+
+
+STORY = "Find the exit and get out before a watcher catches you."
+
+
 def summary(man):
     keys = ["id", "template", "label", "claim", "scope", "example", "current", "created", "brief"]
     out = {k: man.get(k) for k in keys}
+    if man.get("label") in templates.ADAPTERS[man["template"]]["claims"]:  # today's wording for the same label
+        out["claim"] = templates.claim(man["template"], man["label"])
     out["title"] = man["presentation"].get("title", man["id"])
     return out
 
@@ -198,7 +211,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200, samples())
             if path == "/api/artifacts":
                 arts = sorted(artifacts().values(), key=lambda m: (not m["example"], m["created"]))
-                return self.send(200, [summary(m) for m in arts])
+                names = backrooms_names()
+                return self.send(200, [{**summary(m), "title": names[m["id"]]} for m in arts])
             if path.startswith("/api/artifacts/"):
                 man = artifacts().get(path.rsplit("/", 1)[1])
                 if not man:
@@ -208,6 +222,9 @@ class Handler(BaseHTTPRequestHandler):
                         man["drawing"] = runtime(man["template"], "drawing", man["variant"])
                     except Exception:  # e.g. a game process started before a rebuild: "unknown op drawing"
                         pass  # leave drawing out; the level still opens
+                if man.get("label") in templates.ADAPTERS[man["template"]]["claims"]:
+                    man["claim"] = templates.claim(man["template"], man["label"])
+                man["presentation"] = {**man["presentation"], "title": backrooms_names()[man["id"]], "story": STORY}
                 d = Path(man["dir"])
                 files = {f: (d / f).read_text() for f in
                          ["UserSpec.lean", "Candidate.lean", "Challenge.lean", "Solution.lean",
