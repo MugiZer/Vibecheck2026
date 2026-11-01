@@ -1,4 +1,4 @@
-// Rigged Arcade UI. The browser only draws and sends moves: every game state
+// Backrooms page. The browser only draws and sends moves: every game state
 // shown here comes from the Lean runtime through the coordinator.
 const $ = (id) => document.getElementById(id);
 const api = async (path, opts = {}) => {
@@ -8,101 +8,147 @@ const api = async (path, opts = {}) => {
   return body;
 };
 
-const ui = { art: null, session: null, seq: 0, state: null, busy: false, reveal: null, uploadId: null, samples: [] };
+const ui = { art: null, session: null, seq: 0, state: null, busy: false, reveal: null,
+  samples: [], upload: null, levels: [], tab: "Mechanics", job: null };
 const canvas = $("board");
 const ctx = canvas.getContext("2d");
+const KIND = { unwinnable: ["rigged", "rigged"], winnable: ["fair", "fair"], "exactly-one": ["one way out", "fair"] };
+
+// ---------- Lean text ----------
+const LEAN_WORDS = /\b(theorem|lemma|def|abbrev|structure|inductive|where|import|open|namespace|section|end|by|fun|let|have|show|example|instance|match|with|if|then|else|deriving|decide|native_decide|sorry|Prop|Type)\b/;
+const LEAN = new RegExp(String.raw`(\/-[\s\S]*?-\/)|(--[^\n]*)|("(?:[^"\\]|\\.)*")|` + LEAN_WORDS.source, "g");
+function leanHtml(text) {
+  let out = "", last = 0, m;
+  LEAN.lastIndex = 0;
+  while ((m = LEAN.exec(text))) {
+    out += esc(text.slice(last, m.index));
+    const cls = m[1] || m[2] ? "c" : m[3] ? "s" : "k";
+    out += `<span class="${cls}">${esc(m[0])}</span>`;
+    last = m.index + m[0].length;
+  }
+  return out + esc(text.slice(last));
+}
+function showCode(el, text) { el.innerHTML = leanHtml(text || ""); el.scrollTop = 0; }
+
+// ---------- spec pane ----------
+// The spec pane shows the spec the next "Generate" will use: the open level's
+// own spec, a sample, or an uploaded file.
+function fillSpecPick() {
+  const opts = [];
+  if (ui.art && ui.art.files["UserSpec.lean"]) opts.push(["level", "This level's spec"]);
+  if (ui.upload) opts.push(["upload", ui.upload.name]);
+  for (const s of ui.samples) opts.push([`sample:${s.name}`, `Sample: ${s.name}`]);
+  const pick = $("spec-pick"), keep = pick.value;
+  pick.innerHTML = opts.map(([v, t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join("");
+  if (opts.some(([v]) => v === keep)) pick.value = keep;
+  showSpec();
+}
+function specText() {
+  const v = $("spec-pick").value;
+  if (v === "level") return ui.art.files["UserSpec.lean"];
+  if (v === "upload") return ui.upload.text;
+  const s = ui.samples.find((x) => `sample:${x.name}` === v);
+  return s ? s.text : "";
+}
+function showSpec() { showCode($("spec-body"), specText()); }
+$("spec-pick").onchange = showSpec;
+
+$("upload").onchange = async () => {
+  const f = $("upload").files[0];
+  if (!f) return;
+  ui.upload = { name: f.name, text: await f.text() };
+  fillSpecPick();
+  $("spec-pick").value = "upload";
+  showSpec();
+  $("upload").value = "";
+};
+
+// ---------- Lean tabs ----------
+const TABS = [
+  ["Mechanics", "Candidate.lean", "The level itself: board, walls, exit and watcher loops, printed by the Lean game runtime."],
+  ["Theorem", "Challenge.lean", "The statement Lean checks. The coordinator writes it from the spec."],
+  ["Proof", "Solution.lean", "Written by the model. Trusted only because Lean accepts it."],
+  ["Check", "comparator.log", "Output of lake comparator: the proof matches the theorem and uses no extra axioms."],
+];
+function buildTabs() {
+  const bar = $("tabs");
+  const names = TABS.map((t) => t[0]).concat(ui.job ? ["Progress"] : []);
+  bar.innerHTML = names.map((n) => `<button role="tab" aria-selected="${n === ui.tab}">${n}</button>`).join("");
+  bar.querySelectorAll("button").forEach((b) => (b.onclick = () => { ui.tab = b.textContent; buildTabs(); }));
+  showTab();
+}
+function showTab() {
+  if (ui.tab === "Progress" && ui.job) {
+    $("tab-note").textContent = "The model proposes a level and a proof; only Lean can publish it.";
+    $("lean-body").textContent = ui.job.events.map((e) => `${String(e.t).padStart(4)}s  ${e.text}`).join("\n");
+    $("lean-body").scrollTop = 1e9;
+    return;
+  }
+  const t = TABS.find((x) => x[0] === ui.tab) || TABS[0];
+  $("tab-note").textContent = t[2];
+  showCode($("lean-body"), (ui.art && ui.art.files[t[1]]) || "(not in this level)");
+}
 
 // ---------- levels ----------
 async function loadLevels(selectId) {
-  const arts = await api("/api/artifacts");
-  const list = $("levels");
-  list.innerHTML = "";
-  for (const a of arts) {
-    const li = document.createElement("li");
-    const b = document.createElement("button");
-    const kind = a.label === "unwinnable" ? ["rigged", "rigged"] : a.label === "winnable" ? ["fair", "fair"] : a.label === "exactly-one" ? ["one shot", "fair"] : ["custom", ""];
-    b.innerHTML = `<span>${esc(a.title)}</span><span><span class="tag ${kind[1]}">${kind[0]}</span> <span class="tag">${a.template}${a.example ? " · example" : ""}</span></span>`;
-    b.onclick = () => openLevel(a.id);
-    b.dataset.id = a.id;
-    li.appendChild(b);
-    list.appendChild(li);
-  }
+  const arts = (await api("/api/artifacts")).filter((a) => a.template === "maze");
+  ui.levels = arts;
+  $("level").innerHTML = arts.map((a, i) => {
+    const k = KIND[a.label] || ["custom"];
+    return `<option value="${a.id}">Backrooms ${i + 1} · ${k[0]}${a.example ? " · example" : ""}</option>`;
+  }).join("");
   const pick = selectId || (ui.art && ui.art.id) || (arts[0] && arts[0].id);
   if (pick) await openLevel(pick);
 }
+$("level").onchange = () => openLevel($("level").value);
 
 async function openLevel(id) {
   stopReveal();
   const art = await api(`/api/artifacts/${id}`);
   ui.art = art;
-  document.querySelectorAll("#levels button").forEach((b) => b.setAttribute("aria-current", b.dataset.id === id));
-  const p = art.presentation;
-  $("level-title").textContent = p.title || art.id;
-  $("level-story").textContent = p.story || "";
+  $("level").value = id;
+  const k = KIND[art.label] || ["custom", ""];
+  $("kind").textContent = k[0];
+  $("kind").className = `tag ${k[1] || ""}`;
   $("claim").hidden = false;
   $("claim-text").textContent = art.claim;
   $("claim-scope").textContent = art.scope;
-  $("claim-who").textContent = art.example ? "Prepared example, checked by lake comparator" : `Generated by ${art.generatedBy || "Claude"}, checked by lake comparator`;
+  $("claim-who").textContent = art.example ? "Prepared example, checked by lake comparator" : `Made by ${art.generatedBy || "a model"}, checked by lake comparator`;
   $("reveal").hidden = !art.reveal;
   $("reveal-note").hidden = true;
-  $("proof").hidden = true;
-  buildProofTabs(art);
-  const isMaze = art.template === "maze";
-  $("controls").hidden = !isMaze;
-  $("sling-controls").hidden = isMaze;
+  fillSpecPick();
+  $("spec-pick").value = "level";
+  showSpec();
+  if (ui.tab === "Progress" && !ui.job) ui.tab = "Mechanics";
+  buildTabs();
   try {
     const s = await api("/api/sessions", { method: "POST", body: JSON.stringify({ artifactId: id }) });
     ui.session = s.sessionId; ui.seq = s.seq; ui.state = s.state;
     $("overlay").hidden = true;
-    if (!isMaze && window.Sling) window.Sling.open(art, s.state);
+    $("moves").textContent = "";
+    $("status-text").textContent = "";
     render();
-    $("moves").textContent = "0 moves";
-    $("status-text").textContent = isMaze ? "Arrow keys move. Space waits." : "";
   } catch (e) {
     ui.session = null;
     showOverlay("Cannot play this level", e.message);
   }
 }
 
-function buildProofTabs(art) {
-  const f = art.files || {};
-  const tabs = [
-    ["Theorem", f["Challenge.lean"], "The statement the judge checks, written by the coordinator."],
-    ["Proof", f["Solution.lean"], "Written by the agent (or the team for examples). Untrusted until the judge accepts it."],
-    ["Level", f["Candidate.lean"], "The exact level, printed by the game runtime."],
-    ["Requirement", f["UserSpec.lean"], "The uploaded requirement, frozen before generation."],
-    ["Judge log", f["comparator.log"], "Output of lake comparator."],
-    ["Hashes", JSON.stringify({ template: art.templateHash, requirement: art.requestHash, level: art.candidateHash, proof: art.solutionHash, axioms: art.permittedAxioms }, null, 2), "Identities bound together at publication."],
-  ];
-  const bar = $("proof-tabs");
-  bar.innerHTML = "";
-  tabs.forEach(([name, body, note], i) => {
-    const b = document.createElement("button");
-    b.textContent = name; b.setAttribute("role", "tab");
-    b.onclick = () => {
-      bar.querySelectorAll("button").forEach((x) => x.setAttribute("aria-selected", x === b));
-      $("proof-body").textContent = `-- ${note}\n\n${body || "(missing)"}`;
-    };
-    bar.appendChild(b);
-    if (i === 0) b.click();
-  });
-}
-
-// ---------- maze ----------
+// ---------- play ----------
 const DIRS = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right", w: "up", s: "down", a: "left", d: "right", " ": "stay" };
 
 async function act(action) {
-  if (!ui.session || ui.busy || !ui.art || (ui.art.template !== "maze" && action !== "reset")) return;
+  if (!ui.session || ui.busy || !ui.art) return;
   if (action !== "reset" && ui.state && ui.state.status !== "playing") return;
   stopReveal();
   ui.busy = true;
   try {
     const r = await api(`/api/sessions/${ui.session}/act`, { method: "POST", body: JSON.stringify({ seq: ui.seq, action }) });
     ui.seq = r.seq; ui.state = r.state;
-    $("moves").textContent = `${r.moves} move${r.moves === 1 ? "" : "s"}`;
+    $("moves").textContent = r.moves ? `${r.moves} move${r.moves === 1 ? "" : "s"}` : "";
     const st = r.state.status;
-    if (st === "caught") showOverlay("Caught!", "Restart and try another way.");
-    else if (st === "escaped") showOverlay("You escaped!", "This level was fair.");
+    if (st === "caught") showOverlay("Caught", "Press R to try again.", "caught");
+    else if (st === "escaped") showOverlay("You got out", "This level was fair.", "out");
     else $("overlay").hidden = true;
     render();
   } catch (e) {
@@ -111,67 +157,62 @@ async function act(action) {
   } finally { ui.busy = false; }
 }
 
-function showOverlay(title, sub) {
+function showOverlay(title, sub, cls = "") {
   const o = $("overlay");
+  o.className = `overlay ${cls}`;
   o.innerHTML = `<div>${esc(title)}<small>${esc(sub || "")}</small></div>`;
   o.hidden = false;
 }
 
-function render() {
-  if (!ui.art) return;
-  if (ui.art.template === "maze") drawMaze();
-  else if (window.Sling) window.Sling.draw();
-}
+function render() { if (ui.art) drawMaze(); }
+
+const INK = { floor: "#fbfbfa", wall: "#2f3437", grid: "rgba(0,0,0,.06)", player: "#1f2326",
+  guard: "#9f2f2d", exitBg: "#edf3ec", exit: "#346538", gem: "#956400", glow: "rgba(52,101,56,.20)" };
 
 function drawMaze(revealTurn) {
-  const v = ui.art.variant, p = ui.art.presentation, st = ui.state;
-  const size = Math.floor(Math.min(720 / v.width, 560 / v.height));
+  const v = ui.art.variant, st = ui.state;
+  const size = Math.floor(Math.min(640 / v.width, 480 / v.height));
   canvas.width = size * v.width; canvas.height = size * v.height;
   const walls = new Set(v.walls);
   const xy = (c) => [(c % v.width) * size, Math.floor(c / v.width) * size];
+  const mid = (c) => { const [x, y] = xy(c); return [x + size / 2, y + size / 2]; };
+  ctx.fillStyle = INK.floor; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = INK.grid; ctx.lineWidth = 1;
   for (let c = 0; c < v.width * v.height; c++) {
     const [x, y] = xy(c);
-    ctx.fillStyle = walls.has(c) ? p.wall : p.floor;
-    ctx.fillRect(x, y, size, size);
-    if (walls.has(c)) { ctx.fillStyle = "rgba(255,255,255,.06)"; ctx.fillRect(x, y, size, 3); }
-    else { ctx.strokeStyle = "rgba(255,255,255,.04)"; ctx.strokeRect(x + .5, y + .5, size - 1, size - 1); }
+    if (walls.has(c)) { ctx.fillStyle = INK.wall; ctx.fillRect(x, y, size, size); }
+    else ctx.strokeRect(x + .5, y + .5, size - 1, size - 1);
   }
   const guardsByTurn = (ui.art.drawing || {}).guardsByTurn || [];  // from the Lean runtime; none if it is missing
   let guards = st ? st.guards : guardsByTurn[0] || [];
   let next = st ? st.guardsNext : [];
   if (revealTurn !== undefined) {
     if (ui.art.reveal.check && ui.art.reveal.check.passes) {
-      const cells = ui.art.reveal.cellsByTurn[revealTurn] || [];
-      ctx.fillStyle = "rgba(94,230,160,.33)";
-      for (const c of cells) { const [x, y] = xy(c); ctx.fillRect(x + 2, y + 2, size - 4, size - 4); }
+      ctx.fillStyle = INK.glow;
+      for (const c of ui.art.reveal.cellsByTurn[revealTurn] || []) { const [x, y] = xy(c); ctx.fillRect(x + 1, y + 1, size - 2, size - 2); }
     }
     guards = guardsByTurn[revealTurn] || [];
     next = [];
   }
-  const glyph = (c, ch, scale = .72, alpha = 1, disc = null) => {
-    const [x, y] = xy(c);
-    ctx.globalAlpha = alpha;
-    if (disc) {  // a coloured disc keeps pieces readable where emoji render grey
-      ctx.fillStyle = disc;
-      ctx.beginPath(); ctx.arc(x + size / 2, y + size / 2, size * .42, 0, Math.PI * 2); ctx.fill();
-    }
-    ctx.font = `${Math.floor(size * scale)}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
-    ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText(ch, x + size / 2, y + size / 2 + size * .04);
-    ctx.globalAlpha = 1;
+  const dot = (c, r, fill, stroke) => {
+    const [x, y] = mid(c);
+    ctx.beginPath(); ctx.arc(x, y, size * r, 0, Math.PI * 2);
+    if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+    if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 2; ctx.stroke(); }
   };
-  glyph(v.exit, p.exit, .66, 1, revealTurn === undefined ? "rgba(94,230,160,.35)" : null);  // no green disc in Show why: the caption says the exit never glows
-  if (revealTurn !== undefined) {
-    const [x, y] = xy(v.exit);
-    ctx.strokeStyle = "#ff6b7f"; ctx.lineWidth = 3; ctx.strokeRect(x + 3, y + 3, size - 6, size - 6);
-  }
-  v.gems.forEach((g, i) => { if (!(st && st.collected[i])) glyph(g, p.gem, .55, 1, "rgba(95,215,255,.35)"); });
-  next.forEach((c) => glyph(c, p.guard, .5, .3, "rgba(255,107,127,.5)"));
-  if (revealTurn === undefined) glyph(st ? st.pos : v.start, p.player, .74, 1, "rgba(255,181,71,.55)");
-  guards.forEach((c) => glyph(c, p.guard, .72, 1, "rgba(255,107,127,.55)"));
+  // The exit: a door frame. In Show why it gets a red frame: the caption says the exit never glows.
+  const [ex, ey] = xy(v.exit);
+  ctx.fillStyle = revealTurn === undefined ? INK.exitBg : INK.floor;
+  ctx.fillRect(ex + 2, ey + 2, size - 4, size - 4);
+  ctx.strokeStyle = revealTurn === undefined ? INK.exit : INK.guard; ctx.lineWidth = 2;
+  ctx.strokeRect(ex + 3, ey + 3, size - 6, size - 6);
+  v.gems.forEach((g, i) => { if (!(st && st.collected[i])) dot(g, .14, INK.gem); });
+  next.forEach((c) => dot(c, .3, null, "rgba(159,47,45,.35)"));
+  guards.forEach((c) => dot(c, .3, INK.guard));
+  if (revealTurn === undefined) dot(st ? st.pos : v.start, .28, INK.player);
 }
 
-// ---------- reveal ----------
+// ---------- Show why ----------
 function stopReveal() { if (ui.reveal) { clearInterval(ui.reveal); ui.reveal = null; $("reveal").textContent = "Show why"; render(); } }
 
 $("reveal").onclick = () => {
@@ -180,7 +221,6 @@ $("reveal").onclick = () => {
   if (ui.reveal) return stopReveal();
   const note = $("reveal-note");
   note.hidden = false;
-  if (art.template === "sling") return window.Sling && window.Sling.reveal(note);
   const rv = art.reveal;
   if (rv.check) {
     let t = 0;
@@ -190,7 +230,7 @@ $("reveal").onclick = () => {
     tick();
     ui.reveal = setInterval(tick, 700);
   } else if (rv.winningMoves) {
-    note.textContent = `A winning route of ${rv.winningMoves.length} moves, replayed by the Lean runtime. Lean's kernel replayed the same route to prove the level can be won.`;
+    note.textContent = `A way out in ${rv.winningMoves.length} moves, replayed by the Lean runtime. Lean's kernel replayed the same moves to prove the level can be won.`;
     replay(rv.winningMoves);
   }
 };
@@ -208,12 +248,9 @@ async function replay(moves) {
   }, 260);
 }
 
-$("show-proof").onclick = () => { $("proof").hidden = !$("proof").hidden; };
-$("restart").onclick = () => { $("overlay").hidden = true; act("reset"); };
-document.querySelectorAll("[data-move]").forEach((b) => (b.onclick = () => act(b.dataset.move)));
 document.addEventListener("keydown", (e) => {
   if (["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName)) return;
-  if (e.key === "r") { act("reset"); return; }
+  if (e.key === "r" || e.key === "R") { $("overlay").hidden = true; act("reset"); return; }
   const m = DIRS[e.key];
   if (m) { e.preventDefault(); act(m); }
 });
@@ -221,63 +258,57 @@ document.addEventListener("keydown", (e) => {
 // ---------- making levels ----------
 async function loadStatus() {
   const s = await api("/api/status");
-  $("pills").innerHTML = [
-    ["Lean verifier", s.verifier], ["Claude", s.model],
-  ].map(([n, x]) => `<span class="pill ${x.ok ? "ok" : "bad"}" title="${esc(x.why)}">${n}: ${x.ok ? "ready" : "unavailable"}</span>`).join("");
   const live = s.verifier.ok && s.model.ok;
   $("generate").disabled = !live;
-  $("gen-note").textContent = live ? "Usually takes one to three minutes." :
-    `Live generation is unavailable: ${!s.verifier.ok ? s.verifier.why : s.model.why}. The examples still play.`;
-  $("template").innerHTML = s.templates.map((t) => `<option value="${t}">${t === "maze" ? "Maze (guards and gems)" : "Slingshot (physics)"}</option>`).join("");
-  ui.samples = await api("/api/samples");
-  fillSamples();
+  $("gen-note").className = live ? "note" : "note bad";
+  $("gen-note").textContent = live ? "" : `Generation is off: ${!s.verifier.ok ? s.verifier.why : s.model.why}. The levels below still play.`;
+  ui.samples = (await api("/api/samples")).filter((x) => x.template === "maze");
 }
-
-function fillSamples() {
-  const t = $("template").value;
-  const names = { unwinnable: "Rigged: impossible, but looks winnable", winnable: "Fair: can be won", "exactly-one": "Tight: exactly one shot wins" };
-  $("sample").innerHTML = ui.samples.filter((s) => s.template === t)
-    .map((s) => `<option value="${s.name}">${names[s.name] || s.name}</option>`).join("");
-}
-$("template").onchange = fillSamples;
-
-$("upload").onchange = async () => {
-  const f = $("upload").files[0];
-  if (!f) return;
-  $("upload-status").textContent = "uploading…";
-  try {
-    const r = await fetch("/api/upload", { method: "POST", headers: { "X-File-Name": f.name }, body: f });
-    const body = await r.json();
-    if (!r.ok) throw new Error(body.error);
-    ui.uploadId = body.uploadId;
-    $("upload-status").textContent = `stored as upload ${body.uploadId.slice(0, 8)}…; it will be checked when you generate`;
-  } catch (e) { ui.uploadId = null; $("upload-status").textContent = `rejected: ${e.message}`; }
-};
 
 $("make").onsubmit = async (e) => {
   e.preventDefault();
-  const req = { template: $("template").value, brief: $("brief").value };
-  if (ui.uploadId) req.uploadId = ui.uploadId; else req.sample = $("sample").value;
+  const req = { template: "maze", brief: $("brief").value };
+  const pick = $("spec-pick").value;
   $("generate").disabled = true;
-  $("timeline").innerHTML = "";
+  $("gen-note").className = "note";
   try {
+    if (pick.startsWith("sample:")) req.sample = pick.slice(7);
+    else {  // the level's own spec or a file: both go through the upload gate first
+      const name = pick === "upload" ? ui.upload.name : "UserSpec.lean";
+      const r = await fetch("/api/upload", { method: "POST", headers: { "X-File-Name": name }, body: specText() });
+      const body = await r.json();
+      if (!r.ok) throw new Error(`upload rejected: ${body.error}`);
+      req.uploadId = body.uploadId;
+    }
     const { jobId } = await api("/api/generate", { method: "POST", body: JSON.stringify(req) });
+    ui.job = { events: [] };
+    ui.tab = "Progress";
+    buildTabs();
+    $("gen-note").textContent = "Generating. Usually one to three minutes.";
     pollJob(jobId);
-  } catch (err) { $("gen-note").textContent = err.message; $("generate").disabled = false; }
+  } catch (err) {
+    $("gen-note").className = "note bad";
+    $("gen-note").textContent = err.message;
+    $("generate").disabled = false;
+  }
 };
 
 const TERMINAL = ["accepted", "invalid_upload", "budget_exhausted", "verifier_unavailable", "model_unavailable", "cancelled", "failed"];
 async function pollJob(id) {
-  const job = await api(`/api/jobs/${id}`);
-  $("timeline").innerHTML = job.events.map((ev) =>
-    `<li class="state-${ev.state} ${/rejected|invalid|unavailable|exhausted|error/.test(ev.text) ? "bad" : ""}"><span class="t">${ev.t}s</span>${esc(ev.text)}</li>`).join("");
-  $("timeline").scrollTop = 1e9;
-  if (TERMINAL.includes(job.state)) {
-    $("generate").disabled = false;
-    if (job.artifact) loadLevels(job.artifact);
-    return;
+  let job;
+  try { job = await api(`/api/jobs/${id}`); } catch (e) { setTimeout(() => pollJob(id), 1500); return; }
+  ui.job = job;
+  if (ui.tab === "Progress") showTab();
+  if (!TERMINAL.includes(job.state)) { setTimeout(() => pollJob(id), 1000); return; }
+  $("generate").disabled = false;
+  if (job.artifact) {
+    $("gen-note").textContent = "Lean accepted the level. It is open on the right.";
+    ui.tab = "Mechanics";
+    await loadLevels(job.artifact);
+  } else {
+    $("gen-note").className = "note bad";
+    $("gen-note").textContent = `No level published (${job.state.replace(/_/g, " ")}). See Progress.`;
   }
-  setTimeout(() => pollJob(id), 1000);
 }
 
 function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]); }

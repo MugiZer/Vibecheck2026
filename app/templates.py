@@ -97,48 +97,7 @@ MAZE = {
 }
 
 
-# ---------- slingshot ----------
-
-def sling_variant(args):
-    rows = args.get("map")
-    w, h = _grid(rows, "#.ST")
-    # Picture rows run top to bottom; Lean numbers rows from the ground up.
-    at = lambda ch: [(h - 1 - r) * w + x for r, row in enumerate(rows) for x, c in enumerate(row) if c == ch]
-    angles, powers = args.get("angles"), args.get("powers")
-    if not isinstance(angles, list) or not all(isinstance(a, int) and a % 10 == 0 for a in angles):
-        raise ValueError("angles must be a list of degrees in steps of 10, from 0 to 80")
-    if not isinstance(powers, list) or not all(isinstance(p, int) for p in powers):
-        raise ValueError("powers must be a list of whole numbers from 1 to 6")
-    return {"width": w, "height": h, "blocks": sorted(at("#")), "target": _one(at("T"), "T", "target"),
-            "launch": _one(at("S"), "S", "slingshot"), "angles": [a // 10 for a in angles], "powers": powers}
-
-
-SLING = {
-    "schema": {"map": {"type": "array", "items": {"type": "string"}},
-               "angles": {"type": "array", "items": {"type": "integer"}},
-               "powers": {"type": "array", "items": {"type": "integer"}}},
-    "variant": sling_variant,
-    "theme": lambda t: _clean(t, {"title": 60, "story": 300, "material": 10, "ground": 10, "projectile": 12,
-                                  "target": 12, "sky": 7},
-                              {"title": "Untitled level", "material": "wood", "ground": "grass",
-                               "projectile": "alienPink", "target": "alienGreen", "sky": "#8fd3ff"}),
-    "claims": {
-        "unwinnable": ("Proved: none of the shots this slingshot allows hits the target. Also proved: with "
-                       "the blocks taken away, some shot would hit it."),
-        "winnable": "Proved: at least one of the shots this slingshot allows hits the target.",
-        "exactly-one": "Proved: exactly one of the shots this slingshot allows hits the target. Find it.",
-    },
-    "scope": ("The slingshot offers only the angles and powers on the sliders. Each tick the stone moves "
-              "by its velocity, then gravity slows its climb; it stops at the first block, the target, "
-              "the ground, or the edge of the world. The proof checks every allowed shot under exactly "
-              "these rules, which are the Lean functions this game runs."),
-    "quality": ("Make levels worth playing: a world about 16 to 24 wide and 8 to 12 high, a structure of "
-                "blocks around the target, and a control set of at least 5 angles and 4 powers so the "
-                "player has real choices."),
-    "reveal": lambda info, v, solution: {"flights": info.get("flights")},
-}
-
-ADAPTERS = {"maze": MAZE, "sling": SLING}
+ADAPTERS = {"maze": MAZE}
 
 
 def claim(name, label):

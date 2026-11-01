@@ -196,7 +196,7 @@ status2, _ = http("POST", "/api/roblox/log", json.dumps({"lines": [1]}).encode()
 check("the log endpoint refuses lines that are not a list of strings", status == status2 == 400, f"{status} {status2}")
 status, body = http("GET", "/api/status")
 check("/api/status has the fields the Roblox place reads",
-      status == 200 and body.get("templates") == ["maze", "sling"] and all(
+      status == 200 and body.get("templates") == ["maze"] and all(
           isinstance(body.get(k, {}).get("ok"), bool) and isinstance(body.get(k, {}).get("why"), str)
           for k in ("verifier", "model")), f"{status} {body}")
 status, body = http("GET", "/api/artifacts")

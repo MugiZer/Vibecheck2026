@@ -25,7 +25,7 @@ install:
 	  echo "Note: claude-agent-sdk is not installed, so live generation is off. The examples still play."
 
 run:
-	@lake build maze sling upload-gate >/dev/null
+	@lake build maze upload-gate >/dev/null
 	@$(PY) app/server.py
 
 verify:
