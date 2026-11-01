@@ -118,5 +118,37 @@ check("an upload one byte over the limit is rejected", status == 413, str(status
 after = set(p.name for p in uploads.iterdir())
 check("a rejected upload leaves nothing behind", len(after - before) == 2, f"{len(after - before)} new uploads")
 
+# --- the Roblox place: the endpoints it calls, and its art ------------------------
+marker = "check-" + os.urandom(6).hex()
+status, _ = http("POST", "/api/roblox/log", json.dumps({"lines": [f"[check] {marker}"]}).encode())
+log = verify.BUILD / "roblox.log"
+check("a line posted to /api/roblox/log lands in build/roblox.log",
+      status == 200 and log.exists() and marker in log.read_text(), str(status))
+status, _ = http("POST", "/api/roblox/log", json.dumps({"lines": "x"}).encode())
+status2, _ = http("POST", "/api/roblox/log", json.dumps({"lines": [1]}).encode())
+check("the log endpoint refuses lines that are not a list of strings", status == status2 == 400, f"{status} {status2}")
+status, body = http("GET", "/api/status")
+check("/api/status has the fields the Roblox place reads",
+      status == 200 and body.get("templates") == ["maze", "sling"] and all(
+          isinstance(body.get(k, {}).get("ok"), bool) and isinstance(body.get(k, {}).get("why"), str)
+          for k in ("verifier", "model")), f"{status} {body}")
+status, body = http("GET", "/api/artifacts")
+check("every level in /api/artifacts has the fields the Roblox level list reads",
+      status == 200 and isinstance(body, list) and body and all(
+          {"id", "title", "template", "current", "example", "label"} <= item.keys() for item in body), f"{status} {body}")
+status, body = http("GET", f"/api/artifacts/{vault['id']}")
+check("The Museum Vault's detail has the fields the Roblox claim panel reads",
+      status == 200 and all(body.get(k) for k in ("claim", "scope", "variant", "reveal"))
+      and (body.get("presentation") or {}).get("title"), f"{status} {sorted(body)}")
+status, _ = http("POST", "/api/sessions", json.dumps({"artifactId": "nope"}).encode())
+check("starting a session on a level that does not exist gives 404", status == 404, str(status))
+status, _ = http("POST", "/api/sessions/nope/act", json.dumps({"seq": 0, "action": "up"}).encode())
+check("a move in a session that does not exist gives 404", status == 404, str(status))
+# Rojo also makes scripts from .rbxm, .luau and .json files, and only XML can be searched for scripts.
+scripted = [str(f.relative_to(ROOT)) for f in (ROOT / "roblox" / "art").rglob("*") if not f.is_dir() and (
+            f.suffix != ".rbxmx" or any(f'class="{c}"' in f.read_text(errors="replace")
+                                        for c in ("Script", "LocalScript", "ModuleScript")))]
+check("roblox/art holds only .rbxmx files, none with a script", not scripted, ", ".join(scripted))
+
 print(f"\n{failures} failure(s)")
 sys.exit(failures)

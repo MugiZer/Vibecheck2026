@@ -7,3 +7,5 @@ __pycache__/
 .venv/
 templates/pac-man/
 templates/angry-aliens-phaser/
+roblox/art/
+roblox/CoordinatorUrl.txt

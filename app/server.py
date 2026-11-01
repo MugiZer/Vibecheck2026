@@ -22,6 +22,7 @@ DATA = verify.BUILD / "data"
 EXAMPLES = ROOT / "examples"
 SAMPLES = ROOT / "samples"
 GATE = ROOT / ".lake/build/bin/upload-gate"
+ROBLOX_LOG = verify.BUILD / "roblox.log"  # the Roblox place's Output, for agents that cannot see Studio
 UPLOAD_LIMIT = 64 * 1024
 MIME = {".html": "text/html", ".js": "text/javascript", ".css": "text/css",
         ".png": "image/png", ".json": "application/json", ".svg": "image/svg+xml",
@@ -241,6 +242,16 @@ class Handler(BaseHTTPRequestHandler):
             if path.startswith("/api/sessions/") and path.endswith("/act"):
                 with session_lock:
                     return self.act(path.split("/")[3], self.body())
+            if path == "/api/roblox/log":
+                lines = self.body().get("lines")
+                if not isinstance(lines, list) or not all(isinstance(line, str) for line in lines):
+                    return self.send(400, {"error": "lines must be a list of strings"})
+                ROBLOX_LOG.parent.mkdir(parents=True, exist_ok=True)
+                stamp = time.strftime("%H:%M:%S")
+                # shortcut: build/roblox.log is never rotated, rotate it when the file gets large
+                with ROBLOX_LOG.open("a") as f:
+                    f.writelines(f"{stamp} {line[:2000]}\n" for line in lines[:200])
+                return self.send(200, {"ok": True})
             return self.send(404, {"error": "not found"})
         except ValueError as e:  # bad JSON, bad Content-Length, oversized body
             self.close_connection = True  # the body may be unread
