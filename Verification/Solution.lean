@@ -1,5 +1,6 @@
 import Maze
 import UploadSpec.Proofs
+import DecorSpec.Proofs
 
 /-! Proofs of the statements in `Verification/Challenge.lean`. -/
 
@@ -23,3 +24,25 @@ theorem upload_accepted_iff_within_limit : UploadSpec.AcceptedIffWithinLimit :=
 
 theorem upload_accepted_writes_everything : UploadSpec.AcceptedWritesEverything :=
   UploadSpec.acceptedWritesEverything
+
+theorem decor_only_allowed_classes : DecorSpec.OnlyAllowedClasses := DecorSpec.onlyAllowedClasses
+
+theorem decor_no_bad_classes : DecorSpec.NoBadClasses := DecorSpec.noBadClasses
+
+theorem decor_top_is_model : DecorSpec.TopIsModel := DecorSpec.topIsModel
+
+theorem decor_parts_are_inert : DecorSpec.PartsAreInert := DecorSpec.partsAreInert
+
+theorem decor_parts_stay_in_box : DecorSpec.PartsStayInBox := DecorSpec.partsStayInBox
+
+theorem decor_humanoids_show_nothing : DecorSpec.HumanoidsShowNothing := DecorSpec.humanoidsShowNothing
+
+theorem decor_within_limits : DecorSpec.WithinLimits := DecorSpec.withinLimits
+
+theorem decor_ignores_names : DecorSpec.IgnoresNames := DecorSpec.ignoresNames
+
+theorem decor_accepts_safe_decor : DecorSpec.AcceptsSafeDecor := DecorSpec.acceptsSafeDecor
+
+theorem decor_smaller_stays_accepted : DecorSpec.SmallerStaysAccepted := DecorSpec.smallerStaysAccepted
+
+theorem decor_id_is_digits_only : DecorSpec.IdIsDigitsOnly := DecorSpec.idIsDigitsOnly

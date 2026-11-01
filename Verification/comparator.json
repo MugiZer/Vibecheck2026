@@ -8,7 +8,18 @@
     "upload_fixed_shape",
     "upload_never_over_limit",
     "upload_accepted_iff_within_limit",
-    "upload_accepted_writes_everything"
+    "upload_accepted_writes_everything",
+    "decor_only_allowed_classes",
+    "decor_no_bad_classes",
+    "decor_top_is_model",
+    "decor_parts_are_inert",
+    "decor_parts_stay_in_box",
+    "decor_humanoids_show_nothing",
+    "decor_within_limits",
+    "decor_ignores_names",
+    "decor_accepts_safe_decor",
+    "decor_smaller_stays_accepted",
+    "decor_id_is_digits_only"
   ],
   "permitted_axioms": ["propext", "Quot.sound", "Classical.choice"]
 }
