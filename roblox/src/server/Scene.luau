@@ -1,6 +1,8 @@
 -- The scene builder: draws a maze level as a Backrooms room in one Folder, Workspace.Maze.
 -- It places what the coordinator returned and decides nothing: the watchers stand only on
 -- state.guards, and the gems leave the view only when state.collected says so (ticket 09).
+-- Decor (ticket 26) only dresses the room: props stand away from the start, the exit, the gems,
+-- and every cell a watcher can stand on, and a decor model can give the watchers their look.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 local SoundService = game:GetService("SoundService")
@@ -30,10 +32,23 @@ local GEM_HEIGHT = 3 -- studs from the floor to a gem's centre
 local WATCHER_BODY = { Color = Color3.fromRGB(10, 10, 10), Size = Vector3.new(1.6, 5, 0.8) } -- the watcher without the art
 local WATCHER_HEAD = { Color = Color3.fromRGB(10, 10, 10), Size = Vector3.new(1.4, 1.4, 1.2) }
 local WATCHER_EYE = { Material = Enum.Material.Neon, Color = Color3.new(1, 1, 1), Size = Vector3.new(0.3, 0.15, 0.1) }
+local MARK = { -- on the floor of a guard's next cell: faint red, as on the web page
+	Material = Enum.Material.Neon,
+	Color = Color3.fromRGB(255, 107, 127),
+	Transparency = 0.6,
+	Size = Vector3.new(6, 0.05, 6),
+	CanCollide = false,
+	CanQuery = false,
+}
 local HUM = { SoundId = "rbxassetid://9112823813", Volume = 0.06, RollOffMinDistance = 2, RollOffMaxDistance = 14 }
 local HUMS = 8 -- at most this many lights hum
 local ROOM_TONE = { SoundId = "rbxassetid://9125446564", Volume = 0.15 }
 local DRONE = { SoundId = "rbxassetid://1843770413", Volume = 0.1 }
+-- Decor props. The decor gate's box for a prop is 4 x 6 x 4 studs, centred on the model's pivot.
+local PROP_GAP = 2 -- studs from a wall's face to a prop's pivot, so the box touches the wall
+local PROP_HEIGHT = 3 -- studs from the floor to a prop's pivot, so the box stands on the floor
+local PROP_SLOTS = 3 -- spots that one decor model fills
+local PROP_MAX = 12 -- props in one level
 
 -- One instance with the properties of each table, parented last.
 local function new(class, parent, ...)
@@ -78,6 +93,15 @@ local function checkedClone(model)
 	return nil
 end
 
+-- A clone is only for looking at: its parts take no hits, no touch events, and no raycasts.
+local function inert(model)
+	for _, d in model:GetDescendants() do
+		if d:IsA("BasePart") then
+			d.CanCollide, d.CanTouch, d.CanQuery = false, false, false
+		end
+	end
+end
+
 -- The watcher without the art: a dark stack with two white eyes on its front (-Z) side. Its
 -- pivot is the centre of its box, as the dress step leaves pool models.
 local function plainWatcher()
@@ -92,11 +116,149 @@ local function plainWatcher()
 	return m
 end
 
+-- The models in one folder of this level's decor in the pool (Decor.<level id>.<where>) that pass the
+-- checked clone, in the folder's order. A model that fails is left out, with a log line; <n> is its
+-- place in the folder. Nothing is read from a model, not even its name.
+local function goodModels(levelDecor, where)
+	local group = levelDecor and levelDecor:FindFirstChild(where)
+	local models = if group then group:GetChildren() else {}
+	local good = {}
+	for n, model in models do
+		local probe = checkedClone(model)
+		if probe then
+			probe:Destroy() -- a spare, only to see that it passes: every use makes its own clone
+			table.insert(good, model)
+		else
+			print(("[decor] dropped %s %d: count mismatch"):format(where, n))
+		end
+	end
+	return good
+end
+
+local SIDES = { "up", "right", "down", "left" } -- clockwise, the keys of Grid.FACING
+local CORNERS = { { "up", "right" }, { "right", "down" }, { "down", "left" }, { "left", "up" } } -- two sides that meet
+
+-- Where props can stand: { wall = {...}, corner = {...} }, each a list in cell order of { cell, at }
+-- (`at` is where the prop's pivot goes). A wall spot is an open cell with a wall on at least one side;
+-- a corner spot is one with walls on two sides that meet. Never the start, the exit, a gem cell, or a
+-- cell a watcher stands on in any turn: those come from the runtime's drawing.guardsByTurn, and
+-- nothing about the watchers is worked out here. The pivot sits PROP_GAP studs from the wall's face
+-- (from both faces in a corner) and PROP_HEIGHT studs up, turned a quarter turn to face away from the wall.
+local function propSpots(detail, isWall)
+	local variant = detail.variant
+	local width, height = variant.width, variant.height
+	local skip = { [variant.start] = true, [variant.exit] = true }
+	for _, c in variant.gems do
+		skip[c] = true
+	end
+	local turns = detail.drawing and detail.drawing.guardsByTurn or {}
+	for _, turn in turns do
+		for _, c in turn do
+			skip[c] = true
+		end
+	end
+
+	local function walled(c, side) -- is the cell on this side of c a wall? The edge of the board is not.
+		local f = Grid.FACING[side]
+		local col, row = c % width + f.X, c // width + f.Z
+		return col >= 0 and col < width and row >= 0 and row < height and isWall[row * width + col] == true
+	end
+	local function spot(c, a, b) -- b: the second wall of a corner
+		local toward = Grid.FACING[a] + (if b then Grid.FACING[b] else Vector3.zero)
+		local at = Grid.toWorld(width, c) + toward * (Grid.CELL / 2 - PROP_GAP) + Vector3.new(0, PROP_HEIGHT, 0)
+		return { cell = c, at = CFrame.lookAt(at, at - Grid.FACING[a]) }
+	end
+
+	local spots = { wall = {}, corner = {} }
+	for c = 0, width * height - 1 do
+		if not isWall[c] and not skip[c] then
+			local hasWall = {}
+			for _, side in SIDES do
+				hasWall[side] = walled(c, side)
+			end
+			for _, side in SIDES do
+				if hasWall[side] then
+					table.insert(spots.wall, spot(c, side))
+					break
+				end
+			end
+			for _, pair in CORNERS do
+				if hasWall[pair[1]] and hasWall[pair[2]] then
+					table.insert(spots.corner, spot(c, pair[1], pair[2]))
+					break
+				end
+			end
+		end
+	end
+	return spots
+end
+
+-- n items of the list, evenly spaced along it (all of them if it has fewer).
+local function spread(list, n)
+	n = math.min(n, #list)
+	local out = {}
+	for i = 0, n - 1 do
+		table.insert(out, list[i * #list // n + 1])
+	end
+	return out
+end
+
+-- The props, in `folder`: up to PROP_SLOTS clones of every model that passes the check, on spots
+-- spread along the level, at most PROP_MAX in all. The clones are queued one round of models at a
+-- time, so spots next to each other get different models. Corner models go first, and a cell holds
+-- one prop. Returns how many props stand.
+local function placeProps(folder, detail, levelDecor, isWall)
+	local models = { corner = goodModels(levelDecor, "corner"), wall = goodModels(levelDecor, "wall") }
+	if #models.corner + #models.wall == 0 then
+		return 0 -- no decor: nothing else is looked at
+	end
+	local spots, taken, placed = propSpots(detail, isWall), {}, 0
+	for _, where in { "corner", "wall" } do
+		local free, queue = {}, {}
+		for _, s in spots[where] do
+			if not taken[s.cell] then
+				table.insert(free, s)
+			end
+		end
+		for _ = 1, PROP_SLOTS do
+			for _, model in models[where] do
+				table.insert(queue, model)
+			end
+		end
+		for i, s in spread(free, math.min(#queue, PROP_MAX - placed)) do
+			local clone = checkedClone(queue[i])
+			if clone then
+				inert(clone)
+				clone:PivotTo(s.at)
+				clone.Parent = folder
+				taken[s.cell] = true
+				placed += 1
+			end
+		end
+	end
+	return placed
+end
+
 local Scene = {}
 local ambience = false -- the room tone and the drone start at the first build and keep playing
+local drawn -- what Scene.update moves: { maze, width, gems, watchers, marks }
+
+-- Moves the scene to a reply's state: each watcher to its cell in state.guards (with PivotTo, so
+-- any look moves the same way), each mark to its guard's cell in state.guardsNext, and gem i out
+-- of view while state.collected[i] is true.
+function Scene.update(state)
+	for i, watcher in drawn.watchers do
+		local _, size = watcher:GetBoundingBox()
+		watcher:PivotTo(CFrame.new(Grid.toWorld(drawn.width, state.guards[i]) + Vector3.new(0, size.Y / 2, 0)))
+		drawn.marks[i].Position = Grid.toWorld(drawn.width, state.guardsNext[i]) + Vector3.new(0, MARK.Size.Y / 2, 0)
+	end
+	for i, gem in drawn.gems do
+		gem.Parent = if state.collected[i] then nil else drawn.maze
+	end
+end
 
 -- Draws the level detail's variant in Workspace.Maze, with the watchers on state.guards from
--- the session start reply, and prints the [scene] line.
+-- the session start reply, and prints the [decor] and [scene] lines.
 function Scene.build(detail, state)
 	local variant = detail.variant
 	local width, cells = variant.width, variant.width * variant.height
@@ -106,11 +268,14 @@ function Scene.build(detail, state)
 	end
 	local maze = new("Folder", workspace, { Name = "Maze" })
 	local lights = new("Folder", maze, { Name = "Lights" })
+	local decorFolder = new("Folder", maze, { Name = "Decor" }) -- the props, and only they
 
-	-- The pool that the dress step (ticket 24) fills in Edit mode. Until then it is missing, and
-	-- the lights and the watchers use their fallback.
-	local pool = ServerStorage:FindFirstChild("DressPool")
-	pool = pool and pool:FindFirstChild("Art")
+	-- The pool that the dress step (ticket 24) fills in Edit mode: the art, and each level's decor.
+	-- Until then it is missing: the lights and the watchers use their fallback, and no props stand.
+	local dress = ServerStorage:FindFirstChild("DressPool")
+	local pool = dress and dress:FindFirstChild("Art")
+	local levelDecor = dress and dress:FindFirstChild("Decor")
+	levelDecor = levelDecor and levelDecor:FindFirstChild(detail.id)
 	local usedArt = false
 	local function artClone(name)
 		local clone = checkedClone(pool and pool:FindFirstChild(name))
@@ -129,7 +294,8 @@ function Scene.build(detail, state)
 	local area = Vector3.new(width * Grid.CELL, 1, variant.height * Grid.CELL)
 	local middle = (Grid.toWorld(width, 0) + Grid.toWorld(width, cells - 1)) / 2
 	part(maze, FLOOR, { Size = area, Position = middle - Vector3.new(0, 0.5, 0) })
-	part(maze, CEILING, { Size = area, Position = middle + Vector3.new(0, Grid.WALL_HEIGHT + 0.5, 0) })
+	-- named, so the client's map view can take it out of its own view
+	part(maze, CEILING, { Name = "Ceiling", Size = area, Position = middle + Vector3.new(0, Grid.WALL_HEIGHT + 0.5, 0) })
 
 	-- A light on every second open cell: a checkerboard, so every second cell along any corridor.
 	-- Our SurfaceLight is the only light; the art has none (the decor gate rejects lights).
@@ -159,24 +325,38 @@ function Scene.build(detail, state)
 
 	local exitAt = Grid.toWorld(width, variant.exit) + Vector3.new(0, EXIT.Size.Y / 2, 0)
 	new("PointLight", part(maze, EXIT, { Position = exitAt }), EXIT_LIGHT)
+	drawn = { maze = maze, width = width, gems = {}, watchers = {}, marks = {} }
 	for _, c in variant.gems do -- in the order of variant.gems, which state.collected follows
 		local gemAt = Grid.toWorld(width, c) + Vector3.new(0, GEM_HEIGHT, 0)
-		new("PointLight", part(maze, GEM, { Position = gemAt }), GEM_LIGHT)
+		local gem = part(maze, GEM, { Position = gemAt })
+		new("PointLight", gem, GEM_LIGHT)
+		table.insert(drawn.gems, gem)
 	end
 
-	-- One watcher per guard, standing on its cell in state.guards. Every look is a Model moved
-	-- with PivotTo, so any look moves the same way.
-	for _, c in state.guards do
-		local watcher = artClone("Watcher") or plainWatcher()
-		for _, d in watcher:GetDescendants() do
-			if d:IsA("BasePart") then
-				d.CanCollide, d.CanTouch, d.CanQuery = false, false, false
+	-- One watcher and one mark per guard; Scene.update stands them on the state's cells. The look is
+	-- the level's decor watcher if it passes the check, else the art watcher, else the plain stack.
+	local lookModel = goodModels(levelDecor, "watcher")[1]
+	local look = "plain" -- which look the watchers got, for the log
+	for _ in state.guards do
+		local watcher = lookModel and checkedClone(lookModel)
+		if watcher then
+			look = "decor"
+		else
+			watcher = artClone("Watcher")
+			if watcher then
+				look = "art"
 			end
 		end
-		local _, size = watcher:GetBoundingBox()
-		watcher:PivotTo(CFrame.new(Grid.toWorld(width, c) + Vector3.new(0, size.Y / 2, 0)))
+		watcher = watcher or plainWatcher()
+		inert(watcher)
 		watcher.Parent = maze
+		table.insert(drawn.watchers, watcher)
+		table.insert(drawn.marks, part(maze, MARK))
 	end
+	Scene.update(state)
+
+	local props = placeProps(decorFolder, detail, levelDecor, isWall)
+	print(("[decor] placed %d props, watcher look %s"):format(props, look))
 
 	if not ambience then
 		ambience = true

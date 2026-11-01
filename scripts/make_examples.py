@@ -66,40 +66,6 @@ LEVELS = [
                   "three ghosts who take silence very seriously.",
                   "player": "🧙", "guard": "👻", "gem": "📕", "exit": "🚪", "wall": "#4a3426", "floor": "#1f1610"},
     },
-    {
-        "template": "sling", "sample": "unwinnable",
-        "map": ["......................",
-                "......................",
-                "......................",
-                "......................",
-                "......................",
-                "......................",
-                "...............#.#....",
-                "...............#.#....",
-                "...............#T#....",
-                ".S.............###...."],
-        "angles": [20, 30, 40, 50, 60, 70, 80], "powers": [2, 3, 4, 5, 6],
-        "theme": {"title": "The Wishing Well", "story": "A Greeneling is hiding at the bottom of an open well. "
-                  "Just drop a stone in. Thirty-five tries say you can't.",
-                  "material": "stone", "ground": "grass", "projectile": "alienPink", "target": "alienGreen", "sky": "#8fd3ff"},
-    },
-    {
-        "template": "sling", "sample": "exactly-one",
-        "map": ["......................",
-                "......................",
-                "..........#...........",
-                "..........#...........",
-                "..........#...........",
-                "..........#...........",
-                "..........#...........",
-                "......................",
-                "..........#...........",
-                ".S........#......T...."],
-        "angles": [20, 30, 40, 50, 60, 70], "powers": [3, 4, 5, 6],
-        "theme": {"title": "The Keyhole", "story": "One window in the castle wall. Of the twenty-four shots "
-                  "your slingshot allows, exactly one goes through it.",
-                  "material": "wood", "ground": "sand", "projectile": "alienBlue", "target": "alienYellow", "sky": "#ffcf9e"},
-    },
 ]
 
 SOLUTION = """import {lib}
@@ -115,8 +81,6 @@ theorem accepted :
 
 
 def proof_parts(name, sample, h):
-    if name == "sling":
-        return "by decide +kernel", "⟨by decide +kernel, by decide, by decide⟩"
     if sample == "unwinnable":
         return h["playable"], f"⟨{h['unwinnable']}, by decide⟩"
     return h["playable"], f"⟨{h['winnable']}, by decide, by decide⟩"

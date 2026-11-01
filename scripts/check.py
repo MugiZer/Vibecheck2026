@@ -15,6 +15,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "app"))
 import verify  # noqa: E402
 import server  # noqa: E402  (for MAZE_CAPTIONS; importing it starts nothing)
+import decor_gate  # noqa: E402
 
 ROOT = verify.ROOT
 failures = 0
@@ -112,12 +113,6 @@ for seq in range(len(guards_by_turn)):  # stay once per turn of the cycle, endin
 check("the drawing's guard cells equal the runtime's state.guards on every turn played",
       agree and len(turns) > 1, f"turns {turns}")
 
-keyhole, _, _ = example("The Keyhole")
-status, body = http("GET", f"/api/artifacts/{keyhole['id']}")
-drawing = body.get("drawing") or {}
-check("The Keyhole's drawing: 64 units per cell, and every flight starts at [96, 32]",
-      status == 200 and drawing.get("cellSize") == 64 and drawing.get("launchPoint") == [96, 32], f"{status} {drawing}")
-
 # --- identities and freshness ---------------------------------------------
 check("the runtime prints exactly the judged level for every published level",
       all(verify.sha(verify.runtime(m["template"], "lean", m["variant"])) == m["candidateHash"] for m in verify.published()))
@@ -195,7 +190,7 @@ status2, _ = http("POST", "/api/roblox/log", json.dumps({"lines": [1]}).encode()
 check("the log endpoint refuses lines that are not a list of strings", status == status2 == 400, f"{status} {status2}")
 status, body = http("GET", "/api/status")
 check("/api/status has the fields the Roblox place reads",
-      status == 200 and body.get("templates") == ["maze", "sling"] and all(
+      status == 200 and body.get("templates") == ["maze"] and all(
           isinstance(body.get(k, {}).get("ok"), bool) and isinstance(body.get(k, {}).get("why"), str)
           for k in ("verifier", "model")), f"{status} {body}")
 status, body = http("GET", "/api/artifacts")
@@ -215,6 +210,43 @@ scripted = [str(f.relative_to(ROOT)) for f in (ROOT / "roblox" / "art").rglob("*
             f.suffix != ".rbxmx" or any(f'class="{c}"' in f.read_text(errors="replace")
                                         for c in ("Script", "LocalScript", "ModuleScript")))]
 check("roblox/art holds only .rbxmx files, none with a script", not scripted, ", ".join(scripted))
+
+# Decor gate (ticket 23): runs .lake/build/bin/decor-gate directly; no server needed.
+def tree(cls, name="x", size=(0, 0, 0), off=(0, 0, 0), part=False, children=()):
+    """One instance with every field the gate reads. `part=True` gives safe part values."""
+    turn = ([1000, 0, 0], [0, 1000, 0], [0, 0, 1000]) if part else ([0, 0, 0],) * 3
+    return {"name": name, "cls": cls, "anchored": part, "canCollide": False, "canTouch": False,
+            "canQuery": False, "size": list(size), "off": list(off), "alongX": turn[0], "alongY": turn[1],
+            "alongZ": turn[2], "displayDistance": "", "healthDisplay": "", "children": list(children)}
+
+
+bookshelf = tree("Model", "Bookshelf", children=[
+    tree("MeshPart", "Shelf", (35, 55, 12), part=True),
+    tree("Part", "Books", (30, 10, 8), (0, 15, 0), part=True, children=[tree("Decal", "Spines")])])
+raw = json.dumps(bookshelf).encode()
+answer = decor_gate.check_tree("prop", raw)
+check("decor gate: a bookshelf prop is accepted with 4 instances", answer == {"ok": True, "nodes": 4}, str(answer))
+deep = tree("ModuleScript", "Module")
+for _ in range(6):
+    deep = tree("Model", "Box", children=[deep])
+answer = decor_gate.check_tree("prop", json.dumps(deep).encode())
+check("decor gate: a ModuleScript six Models deep is rejected", answer["ok"] is False, str(answer))
+answer = decor_gate.check_tree("prop", json.dumps(tree("Model", "Tool", children=[tree("Script", "Handle")])).encode())
+check("decor gate: a Script named Handle is rejected", answer["ok"] is False, str(answer))
+fraction = raw.replace(b"[35, ", b"[35.5, ", 1)
+missing = raw.replace(b'"canQuery": false, ', b"", 1)
+answers = [decor_gate.check_tree("prop", fraction), decor_gate.check_tree("prop", missing)]
+check("decor gate: a fraction or a missing field is rejected",
+      fraction != raw and missing != raw and all(a["ok"] is False for a in answers), str(answers))
+bad_id = '1"; game:Destroy()--'
+check("decor gate: a code-shaped asset id is refused, a digits-only id is accepted",
+      decor_gate.valid_id(bad_id) is False and decor_gate.valid_id("9333354309") is True)
+picks = [{"id": str(9333354300 + i), "kind": "prop", "where": "wall", "name": f"Pick {i}"} for i in range(8)]
+picks[1]["id"] = bad_id
+picks[3]["kind"] = "script"
+kept = decor_gate.clean_picks(picks)
+check("decor gate: clean_picks keeps 6 good picks and drops the bad id and the script kind",
+      len(kept) == 6 and all(p["id"] != bad_id and p["kind"] in ("prop", "npc") for p in kept), str(kept))
 
 # --- the dress step: only checked values go into its Luau text ----------------------
 try:

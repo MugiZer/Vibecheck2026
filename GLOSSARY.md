@@ -7,7 +7,7 @@ Players ask for a game level and a property it must have. Claude designs the lev
 ### Games and levels
 
 **Template**:
-One game the arcade offers (maze, slingshot). Its Lean rules, spec, runtime, and guide live in `templates/<name>/`.
+The game the arcade offers (maze). Its Lean rules, spec, runtime, and guide live in `templates/<name>/`.
 _Avoid_: game type, engine
 
 **Variant**:
@@ -25,7 +25,7 @@ _Avoid_: result, output
 ### Who decides
 
 **Runtime**:
-The compiled Lean game process for a template (`maze`, `sling`). It is the only code that decides what a move or shot does, and it runs the same functions the proofs are about.
+The compiled Lean game process for a template (`maze`). It is the only code that decides what a move does, and it runs the same functions the proofs are about.
 _Avoid_: engine, backend
 
 **Judge**:
@@ -62,5 +62,5 @@ _Avoid_: sanitizer, filter, scanner
 _Avoid_: import, insert step
 
 **Show why**:
-The view that draws a level's proof evidence: the cells that pass Lean's region check on each guard turn; until a guard catches you, you are always on one (maze), or every allowed shot's flight (slingshot).
+The view that draws a level's proof evidence: the cells that pass Lean's region check on each guard turn; until a guard catches you, you are always on one.
 _Avoid_: reveal (in UI text), explanation

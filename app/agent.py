@@ -11,7 +11,7 @@ import time
 import templates
 import verify
 
-MODEL = os.environ.get("RIGGED_MODEL", "claude-sonnet-5-5")
+MODEL = os.environ.get("RIGGED_MODEL", "claude-opus-5-5")
 MAX_SUBMITS = int(os.environ.get("RIGGED_MAX_SUBMITS", "6"))
 MAX_ROUNDS = 3
 TIME_LIMIT = int(os.environ.get("RIGGED_TIME_LIMIT", "900"))
@@ -42,7 +42,7 @@ def generate(job, runtime):
 
 async def _generate(job, runtime):
     from claude_agent_sdk import (AssistantMessage, ClaudeAgentOptions, ClaudeSDKClient, ResultMessage,
-                                  TextBlock, create_sdk_mcp_server, tool)
+                                  SystemMessage, TextBlock, create_sdk_mcp_server, tool)
 
     name = job.template
     adapter = templates.ADAPTERS[name]
@@ -118,6 +118,7 @@ async def _generate(job, runtime):
         allowed_tools=["mcp__rigged__try_level", "mcp__rigged__submit"],
         permission_mode="dontAsk", setting_sources=[], system_prompt=SYSTEM + "\n\n" + guide,
         model=MODEL, max_turns=60, max_budget_usd=BUDGET_USD, cwd=str(root),
+        settings='{"fastMode": true}',  # without it the SDK turns fast mode off (sdk_opt_in_required)
         env={"MCP_TOOL_TIMEOUT": "900000"})
     root.mkdir(parents=True, exist_ok=True)
     prompt = (f"Template: {name}\n\nThe user's requirement (UserSpec.lean):\n```lean\n{job.spec_text}\n```\n\n"
@@ -138,6 +139,9 @@ async def _generate(job, runtime):
                     for block in msg.content:
                         if isinstance(block, TextBlock) and block.text.strip():
                             job.emit("Claude: " + block.text.strip()[:400])
+                elif isinstance(msg, SystemMessage) and msg.subtype == "init":
+                    reason = msg.data.get("fast_mode_disabled_reason")
+                    job.emit(f"fast mode: {msg.data.get('fast_mode_state', 'unknown')}" + (f" ({reason})" if reason else ""))
                 elif isinstance(msg, ResultMessage) and msg.total_cost_usd:
                     job.emit(f"model cost so far ${msg.total_cost_usd:.2f}")
             if state["accepted"] or job.cancelled.is_set() or time.time() - started > TIME_LIMIT \

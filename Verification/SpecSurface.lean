@@ -9,7 +9,7 @@ import Lean
 open Lean Elab Command
 
 /-- Module name prefixes that belong to this project. -/
-def ownPrefixes : List Name := [`Maze, `Sling, `Upload, `UploadSpec, `Decor, `DecorSpec, `Verification]
+def ownPrefixes : List Name := [`Maze, `Upload, `UploadSpec, `Decor, `DecorSpec, `Verification]
 
 partial def specSurface (env : Environment) (thm : Name) : NameSet :=
   let rec go (todo : List Name) (seen : NameSet) : NameSet :=

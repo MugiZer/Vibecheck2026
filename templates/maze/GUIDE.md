@@ -68,8 +68,22 @@ requirement proof is `⟨UNWINNABLE_HINT, by decide⟩`. For
 `by decide` for simple counts. Do not use `sorry`, `native_decide`, axioms, or
 change the statement.
 
+## Setting
+
+Every maze is a room in an endless, humming, yellow office: old carpet,
+buzzing ceiling lights, no windows. Guards are "watchers" in the story text.
+Place no gems (`G`): each maze is a room you get out of, and reaching the exit
+wins (with no gems, the rules need none collected).
+
 ## Theme
 
 `theme` is presentation only and is not proved: `title`, `story` (one or two
 sentences), single emoji for `player`, `guard`, `gem`, `exit`, and CSS hex
 colours `wall` and `floor`.
+
+- The title names an ordinary office place made strange, for example
+  "The Humming Annex" or "Room With No Lunch Break".
+- Do not use names, level numbers, or creatures from any existing Backrooms
+  story or game.
+- Still give the emoji and the `wall` and `floor` colours: the web page draws
+  them. Yellow and brown tones suit the office.
