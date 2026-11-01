@@ -133,7 +133,7 @@ function ops.levels()
 	end
 	local out = {}
 	for _, a in levels do
-		if a.template == "maze" then -- slingshot levels play only on the web page
+		if a.template == "maze" and not a.example then -- only levels made from an uploaded spec, no shipped examples
 			local kind = a.template .. (if a.example then " · example" else "")
 			table.insert(out, { id = a.id, text = ("%s   [%s] [%s]"):format(a.title, TAGS[a.label] or "custom", kind) })
 		end
