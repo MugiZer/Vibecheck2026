@@ -160,10 +160,10 @@ def check_upload(name, spec_text, scratch):
     return True, ""
 
 
-def runtime(name, op, variant):
+def runtime(name, op, variant, **extra):
     """Ask the template's game process (the real runtime) about a level."""
     exe = TEMPLATES[name]["exe"]
-    req = json.dumps({"op": op, "variant": variant})
+    req = json.dumps({"op": op, "variant": variant, **extra})
     p = subprocess.run([str(exe), "serve"], input=req + "\n", capture_output=True, text=True, timeout=120)
     reply = json.loads(p.stdout.strip().splitlines()[0])
     if not reply["ok"]:

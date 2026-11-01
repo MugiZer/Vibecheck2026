@@ -50,5 +50,5 @@ The place file built with Rojo from the repo's Roblox folder and opened in Roblo
 _Avoid_: experience (that word means a published Roblox game, which this effort does not ship), Roblox game
 
 **Show why**:
-The view that draws a level's proof evidence: every cell you could be in on each guard turn (maze), or every allowed shot's flight (slingshot).
+The view that draws a level's proof evidence: the cells that pass Lean's region check on each guard turn (maze), or every allowed shot's flight (slingshot).
 _Avoid_: reveal (in UI text), explanation

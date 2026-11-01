@@ -10,6 +10,8 @@ import MazeRuntime.Json
   state.
 * `{"op":"solve","variant":V}` searches for evidence (untrusted).
 * `{"op":"lean","variant":V}` prints the `Candidate` module for the level.
+* `{"op":"check","variant":V,"cellsByTurn":[[...],...]}` runs `Maze.checkRegions`
+  on the cells Show why paints and returns `{"passes":true|false}`.
 
 `maze lean FILE` and `maze solve FILE` do the same for a JSON file.
 -/
@@ -32,6 +34,7 @@ def handle (req : Json) : Except String Json := do
   | "lean" =>
     if (problems v).isEmpty then return toJson (candidateModule v)
     else throw s!"level is not well formed: {problems v}"
+  | "check" => return checkJson v (← req.getObjValAs? (List (List Nat)) "cellsByTurn")
   | _ => throw s!"unknown op {op}"
 
 def serve : IO Unit := do

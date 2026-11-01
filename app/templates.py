@@ -71,8 +71,7 @@ def cells_by_turn(regions, cells):
 def maze_reveal(info, v, solution):
     regions = info.get("regions")
     return {"cellsByTurn": cells_by_turn(regions, v["width"] * v["height"]),
-            "winningMoves": info.get("winningMoves"), "cycle": info.get("cycle"),
-            "matchesProof": bool(regions) and str(regions) in solution}
+            "winningMoves": info.get("winningMoves"), "cycle": info.get("cycle")}
 
 
 MAZE = {

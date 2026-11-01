@@ -5,9 +5,10 @@
 Pick a game, pick what you want to be true about it ("impossible, but looks
 winnable", "exactly one shot wins", or your own Lean statement), and describe
 it in a sentence. Claude designs the level. Lean checks a proof about the exact
-level you then play. Try to beat a rigged level, then press **Show why**: the
-game paints every place you could ever be, or every shot you could ever take,
-and none of them reaches the goal.
+level you then play. Try to beat a rigged level, then press **Show why**: in
+the maze, the game lights the cells that pass Lean's region check, turn by
+turn, and the exit is never lit; in the slingshot, it draws every shot you
+could take, and none of them hits.
 
 Two games:
 
@@ -121,6 +122,9 @@ the surface to review: `templates/maze/Maze/Game.lean` and `Spec.lean`,
 - **Not proved:** the JSON adapters, the Python coordinator, HTTP, the browser
   drawing, and the upload gate's file-system calls and read loop (which calls
   the proved `Upload.admit` before writing each chunk of at most 64 KiB).
+  The runtime's compiled `checkRegions` checks Show why's glowing cells each
+  time a level is opened. The caption beside them comes from the coordinator
+  (`reveal.check.caption`).
   `make check` tests these through the real endpoints. The `bwrap` sandbox and
   the operating system are trusted to isolate uploaded Lean, which can run code
   while it compiles.
