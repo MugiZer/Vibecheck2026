@@ -195,7 +195,7 @@ check("/api/status has the fields the Roblox place reads",
           for k in ("verifier", "model")), f"{status} {body}")
 status, body = http("GET", "/api/artifacts")
 check("every level in /api/artifacts has the fields the Roblox level list reads",
-      status == 200 and isinstance(body, list) and body and all(
+      status == 200 and isinstance(body, list) and all(
           {"id", "title", "template", "current", "example", "label"} <= item.keys() for item in body), f"{status} {body}")
 status, body = http("GET", f"/api/artifacts/{vault['id']}")
 check("The Museum Vault's detail has the fields the Roblox claim panel reads",

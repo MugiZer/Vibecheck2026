@@ -93,6 +93,8 @@ def shown_levels():
     newest = {}
     for m in artifacts().values():
         key = m.get("requestHash") or m["id"]
+        if m["example"] or m.get("label") is not None:  # demo: only levels made live from an uploaded spec
+            continue
         if key not in newest or m["created"] > newest[key]["created"]:
             newest[key] = m
     return sorted(newest.values(), key=lambda m: (not m["example"], m["created"]))

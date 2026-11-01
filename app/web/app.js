@@ -98,7 +98,9 @@ async function loadLevels(selectId) {
     return `<option value="${a.id}">${esc(a.title)} · ${k[0]}${a.example ? " · example" : ""}</option>`;
   }).join("");
   const pick = selectId || (ui.art && ui.art.id) || (arts[0] && arts[0].id);
+  $("level").hidden = $("to-roblox").hidden = !arts.length;
   if (pick) await openLevel(pick);
+  else showOverlay("No level yet", "Upload a spec on the left and press Generate level.");
 }
 $("level").onchange = () => openLevel($("level").value);
 
