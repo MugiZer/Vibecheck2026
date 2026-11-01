@@ -248,5 +248,19 @@ kept = decor_gate.clean_picks(picks)
 check("decor gate: clean_picks keeps 6 good picks and drops the bad id and the script kind",
       len(kept) == 6 and all(p["id"] != bad_id and p["kind"] in ("prop", "npc") for p in kept), str(kept))
 
+# --- the dress step: only checked values go into its Luau text ----------------------
+try:
+    import dress  # noqa: E402  (imports app/decor_gate.py, ticket 23)
+    try:
+        dress.luau_value('x"; game:Destroy()--')
+        refused = False
+    except ValueError:
+        refused = True
+    passed = dress.luau_value("9333354309") == "9333354309"
+    detail = "" if refused else "the code-shaped text was accepted"
+except Exception as e:  # print FAIL, not a traceback
+    refused, passed, detail = False, False, repr(e)
+check("luau_value refuses 'x\"; game:Destroy()--' and returns \"9333354309\" unchanged", refused and passed, detail)
+
 print(f"\n{failures} failure(s)")
 sys.exit(failures)

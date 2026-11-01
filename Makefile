@@ -6,6 +6,7 @@
 #   make examples   rebuild the shipped example levels through the judge (Linux)
 #   make roblox     build the Roblox place build/RiggedArcade.rbxlx (gets Rojo and selene into .tools/)
 #   make roblox-serve  live-sync roblox/ into the place open in Studio (never the art)
+#   make dress      fill the place open in Studio with the art kit and each level's decor (Edit mode, before Play)
 
 PORT ?= 8642
 export PORT
@@ -13,7 +14,7 @@ export PATH := $(HOME)/.elan/bin:$(PATH)
 PY = $(shell [ -x .venv/bin/python ] && echo .venv/bin/python || echo python3)
 ROBLOX_URL ?= http://127.0.0.1:$(PORT)
 
-.PHONY: install run verify check examples clean roblox roblox-serve roblox-prep
+.PHONY: install run verify check examples clean roblox roblox-serve roblox-prep dress
 
 install:
 	@command -v lake >/dev/null 2>&1 || { echo "Installing Lean with elan..."; \
@@ -77,3 +78,7 @@ roblox: roblox-prep
 
 roblox-serve: roblox-prep
 	.tools/rojo serve roblox/serve.project.json
+
+# Run while Studio is open on the place in Edit mode, before Play (ticket 24). Needs lake build decor-gate.
+dress:
+	$(PY) app/dress.py
