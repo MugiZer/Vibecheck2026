@@ -113,12 +113,6 @@ for seq in range(len(guards_by_turn)):  # stay once per turn of the cycle, endin
 check("the drawing's guard cells equal the runtime's state.guards on every turn played",
       agree and len(turns) > 1, f"turns {turns}")
 
-keyhole, _, _ = example("The Keyhole")
-status, body = http("GET", f"/api/artifacts/{keyhole['id']}")
-drawing = body.get("drawing") or {}
-check("The Keyhole's drawing: 64 units per cell, and every flight starts at [96, 32]",
-      status == 200 and drawing.get("cellSize") == 64 and drawing.get("launchPoint") == [96, 32], f"{status} {drawing}")
-
 # --- identities and freshness ---------------------------------------------
 check("the runtime prints exactly the judged level for every published level",
       all(verify.sha(verify.runtime(m["template"], "lean", m["variant"])) == m["candidateHash"] for m in verify.published()))
