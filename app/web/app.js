@@ -134,6 +134,16 @@ async function openLevel(id) {
   }
 }
 
+// The Roblox place polls the coordinator and opens whatever level was sent last.
+$("to-roblox").onclick = async () => {
+  if (!ui.art) return;
+  try {
+    await api("/api/roblox/play", { method: "POST", body: JSON.stringify({ artifactId: ui.art.id }) });
+    $("roblox-note").textContent = "Sent. It opens in Roblox in a second.";
+  } catch (e) { $("roblox-note").textContent = e.message; }
+  setTimeout(() => { $("roblox-note").textContent = ""; }, 4000);
+};
+
 // ---------- play ----------
 const DIRS = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right", w: "up", s: "down", a: "left", d: "right", " ": "stay" };
 

@@ -69,6 +69,8 @@ select, input[type=text] {
 .play { overflow: auto; padding: .9rem 1.4rem 1.4rem; display: flex; flex-direction: column; gap: .8rem; }
 .play-head { display: flex; align-items: center; gap: .7rem; flex-wrap: wrap; }
 .play-head select { font-weight: 600; }
+button.quiet { background: var(--sheet); color: var(--ink); border: 1px solid var(--line); margin-left: auto; }
+button.quiet:hover { border-color: var(--soft); background: var(--sheet); }
 .tag { font-size: .78rem; font-weight: 600; padding: .15rem .55rem; border-radius: 999px; background: #efeeea; }
 .tag.rigged { background: var(--red-bg); color: var(--red); }
 .tag.fair { background: var(--green-bg); color: var(--green); }

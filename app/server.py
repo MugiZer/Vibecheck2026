@@ -23,6 +23,9 @@ EXAMPLES = ROOT / "examples"
 SAMPLES = ROOT / "samples"
 GATE = ROOT / ".lake/build/bin/upload-gate"
 ROBLOX_LOG = verify.BUILD / "roblox.log"  # the Roblox place's Output, for agents that cannot see Studio
+# The level the web page last sent to Roblox ("Play in Roblox"). The place polls it and opens the level;
+# n counts the sends, so sending the same level again plays it again. Only a level id: no rules here.
+ROBLOX_PLAY = {"id": None, "n": 0}
 UPLOAD_LIMIT = 64 * 1024
 MIME = {".html": "text/html", ".js": "text/javascript", ".css": "text/css",
         ".png": "image/png", ".json": "application/json", ".svg": "image/svg+xml",
@@ -183,6 +186,8 @@ class Handler(BaseHTTPRequestHandler):
                 if WEB.resolve() not in f.parents or not f.is_file():
                     return self.send(404, {"error": "not found"})
                 return self.send(200, f.read_bytes(), MIME.get(f.suffix, "application/octet-stream"))
+            if path == "/api/roblox/play":
+                return self.send(200, ROBLOX_PLAY)
             if path == "/api/status":
                 v_ok, v_why = verify.verifier_ready()
                 m_ok, m_why = model_status()
@@ -267,6 +272,12 @@ class Handler(BaseHTTPRequestHandler):
             if path.startswith("/api/sessions/") and path.endswith("/act"):
                 with session_lock:
                     return self.act(path.split("/")[3], self.body())
+            if path == "/api/roblox/play":
+                art = self.body().get("artifactId")
+                if not isinstance(art, str) or art not in artifacts():
+                    return self.send(404, {"error": "no such level"})
+                ROBLOX_PLAY.update(id=art, n=ROBLOX_PLAY["n"] + 1)
+                return self.send(200, ROBLOX_PLAY)
             if path == "/api/roblox/log":
                 lines = self.body().get("lines")
                 if not isinstance(lines, list) or not all(isinstance(line, str) for line in lines):
