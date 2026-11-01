@@ -8,7 +8,6 @@
   atlas.onload = () => window.Sling.draw();
 
   const S = { art: null, state: null, anim: null, shown: null, trails: null };
-  const CELL = 64;  // Lean units per cell
   const OUTCOME = { hitTarget: "Hit! The target is down.", hitBlock: "Blocked.", hitGround: "Hit the ground.",
                     leftWorld: "Flew out of the world.", tooLong: "Still flying after 160 ticks: a miss." };
 
@@ -17,8 +16,10 @@
     const cell = Math.floor(Math.min(720 / v.width, 460 / v.height));
     const ground = Math.round(cell * 0.7);
     canvas.width = v.width * cell; canvas.height = v.height * cell + ground;
-    const px = (x) => (x / CELL) * cell;
-    const py = (y) => v.height * cell - (y / CELL) * cell;
+    // Lean units per cell, from the runtime. Without it flights cannot be placed, so none are drawn.
+    const unit = (S.art.drawing || {}).cellSize;
+    const px = (x) => (x / unit) * cell;
+    const py = (y) => v.height * cell - (y / unit) * cell;
     const cellXY = (c) => [(c % v.width) * cell, (v.height - 1 - Math.floor(c / v.width)) * cell];
     return { v, cell, ground, px, py, cellXY };
   }
@@ -50,16 +51,17 @@
       ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(r) * cell * 1.6, cy - Math.sin(r) * cell * 1.6); ctx.stroke();
       ctx.setLineDash([]);
     }
-    if (S.trails) for (const f of S.trails) path(f.path, f.outcome === "hitTarget" ? "rgba(30,170,90,.95)" : "rgba(200,40,60,.55)", f.outcome === "hitTarget" ? 4 : 1.5, px, py, v);
+    if (S.trails) for (const f of S.trails) path(f.path, f.outcome === "hitTarget" ? "rgba(30,170,90,.95)" : "rgba(200,40,60,.55)", f.outcome === "hitTarget" ? 4 : 1.5, px, py);
     if (S.shown) {
-      path(S.shown.path.slice(0, S.shown.i + 1), "rgba(255,255,255,.85)", 2.5, px, py, v, true);
+      path(S.shown.path.slice(0, S.shown.i + 1), "rgba(255,255,255,.85)", 2.5, px, py, true);
       const pt = S.shown.path[Math.min(S.shown.i, S.shown.path.length - 1)];
       if (pt) sprite(`${p.projectile || "alienPink"}_round`, px(pt[0]) - cell * .3, py(pt[1]) - cell * .3, cell * .6, cell * .6, "#f6c");
     }
   }
 
-  function path(pts, color, width, px, py, v, dotted) {
-    const [lx, ly] = [(v.launch % v.width) * CELL + CELL / 2, Math.floor(v.launch / v.width) * CELL + CELL / 2];
+  function path(pts, color, width, px, py, dotted) {
+    if (!S.art.drawing) return;  // no launch point and no cell size (see geom), so no flight can be placed
+    const [lx, ly] = S.art.drawing.launchPoint;  // where every flight starts, from the runtime
     ctx.strokeStyle = color; ctx.lineWidth = width; if (dotted) ctx.setLineDash([2, 5]);
     ctx.beginPath(); ctx.moveTo(px(lx), py(ly));
     for (const [x, y] of pts) ctx.lineTo(px(x), py(y));

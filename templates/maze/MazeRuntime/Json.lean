@@ -92,6 +92,11 @@ def stateJson (v : Variant) (s : State) : Json :=
     ("guards", toJson (v.guards.map fun r => guardAt r s.turn)),
     ("guardsNext", toJson (v.guards.map fun r => guardAt r (s.turn + 1)))]
 
+/-- Each guard's cell on every turn of the guards' cycle, from `guardAt`, the
+function `stateJson` uses. Renderers draw Show why's guards from this. -/
+def drawingJson (v : Variant) : Json :=
+  Json.mkObj [("guardsByTurn", toJson ((List.range v.cycle).map fun t => v.guards.map (guardAt · t)))]
+
 /-- Everything the agent or the reveal needs to know about a level. -/
 def solveJson (v : Variant) : Json := Id.run do
   let ps := problems v

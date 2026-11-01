@@ -9,6 +9,7 @@ import MazeRuntime.Json
   start with `Maze.run`, the function the proofs are about, and returns the
   state.
 * `{"op":"solve","variant":V}` searches for evidence (untrusted).
+* `{"op":"drawing","variant":V}` returns each guard's cell on every turn.
 * `{"op":"lean","variant":V}` prints the `Candidate` module for the level.
 * `{"op":"check","variant":V,"cellsByTurn":[[...],...]}` runs `Maze.checkRegions`
   on the cells Show why paints and returns `{"passes":true|false}`.
@@ -31,6 +32,7 @@ def handle (req : Json) : Except String Json := do
       | none => throw s!"unknown move {n}"
     return stateJson v (run v moves)
   | "solve" => return solveJson v
+  | "drawing" => return drawingJson v
   | "lean" =>
     if (problems v).isEmpty then return toJson (candidateModule v)
     else throw s!"level is not well formed: {problems v}"

@@ -73,6 +73,12 @@ def stateJson (v : Variant) (launched : List Shot) : Json :=
   Json.mkObj [("launches", toJson launched.length), ("status", toJson (if won then "won" else "playing")),
     ("last", match launched.getLast? with | some s => flightJson v s | none => Json.null)]
 
+/-- Where every flight starts (`launchStone`; the start does not depend on the
+shot), and how many units make one cell. -/
+def drawingJson (v : Variant) : Json :=
+  let s := launchStone v ⟨0, 0⟩
+  Json.mkObj [("launchPoint", toJson [s.x, s.y]), ("cellSize", toJson cellSize)]
+
 def solveJson (v : Variant) : Json :=
   let ps := problems v
   let all := shots v
