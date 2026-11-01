@@ -49,6 +49,14 @@ _Avoid_: client, frontend, game (for the Roblox side)
 The place file built with Rojo from the repo's Roblox folder and opened in Roblox Studio. It is a renderer: its server script calls the coordinator over HTTP.
 _Avoid_: experience (that word means a published Roblox game, which this effort does not ship), Roblox game
 
+**Decor**:
+Creator Store models placed in a Roblox level for looks only: props, or NPC models when the brief asks for them. Decor never changes play.
+_Avoid_: assets, items (alone), furniture
+
+**Decor gate**:
+The Lean program that decides whether one fetched decor model may enter the scene, from the instance tree the Roblox place reports.
+_Avoid_: sanitizer, filter, scanner
+
 **Show why**:
 The view that draws a level's proof evidence: every cell you could be in on each guard turn (maze), or every allowed shot's flight (slingshot).
 _Avoid_: reveal (in UI text), explanation
