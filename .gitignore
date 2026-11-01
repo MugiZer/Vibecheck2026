@@ -1,2 +1,7 @@
 .tools/
 .lake/
+build/
+artifacts/
+scratch/
+__pycache__/
+.venv/

@@ -1,0 +1,19 @@
+name = "rigged"
+version = "0.1.0"
+defaultTargets = ["Maze", "MazeRuntime", "maze"]
+
+# Maze template: rules, specs, and the certificate checker. No `import Lean`.
+[[lean_lib]]
+name = "Maze"
+srcDir = "templates/maze"
+
+# Untrusted runtime support: search and JSON.
+[[lean_lib]]
+name = "MazeRuntime"
+srcDir = "templates/maze"
+
+# The maze game process.
+[[lean_exe]]
+name = "maze"
+srcDir = "templates/maze"
+root = "MazeMain"
