@@ -4,6 +4,7 @@
     "$className": "DataModel",
     "HttpService": { "$className": "HttpService", "$properties": { "HttpEnabled": true } },
     "Players": { "$className": "Players", "$properties": { "CharacterAutoLoads": false } },
+    "Chat": { "$className": "Chat", "$properties": { "LoadDefaultChat": false } },
     "Lighting": {
       "$className": "Lighting",
       "$properties": {

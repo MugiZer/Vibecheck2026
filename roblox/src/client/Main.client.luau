@@ -18,13 +18,15 @@ end)
 
 -- The avatar stays on the cell the server puts it on: no default controls (turned off when the
 -- character is there, below) and no reset button. No chat window either: it covers the level list.
+-- default.project.json turns the chat off in a place built by make roblox (Chat.LoadDefaultChat; live
+-- sync cannot set it), and the call below hides it in a place that still loads it.
 local controls = require(Players.LocalPlayer:WaitForChild("PlayerScripts"):WaitForChild("PlayerModule")):GetControls()
-StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Chat, false)
-task.spawn(function() -- the reset call errors until Roblox's own UI scripts have loaded
+task.spawn(function() -- both calls do nothing until Roblox's own UI scripts have loaded
 	repeat
 		local ok = pcall(StarterGui.SetCore, StarterGui, "ResetButtonCallback", false)
 		task.wait(0.2)
 	until ok
+	StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Chat, false)
 end)
 
 local gui = Instance.new("ScreenGui")
@@ -104,6 +106,8 @@ local function showPanel(view)
 	panel.Visible = true
 end
 
+local leave -- clears the last level's HUD, map view, and camera; defined with the HUD below
+
 local function openList() -- fetched each time, so levels made during play appear
 	local found, err = Coordinator:InvokeServer("levels")
 	if not found then
@@ -124,7 +128,9 @@ local function openList() -- fetched each time, so levels made during play appea
 			Parent = list,
 		})
 		b.Activated:Connect(function()
-			showPanel(Coordinator:InvokeServer("open", level.id))
+			local reply = Coordinator:InvokeServer("open", level.id) -- the server Script removes the last level's maze
+			leave() -- after the reply, so a move reply sent before the server handled open is cleared too
+			showPanel(reply)
 		end)
 	end
 	panel.Visible = false
@@ -132,7 +138,15 @@ local function openList() -- fetched each time, so levels made during play appea
 end
 levels.Activated:Connect(openList)
 play.Activated:Connect(function()
-	showPanel(Coordinator:InvokeServer("play"))
+	local reply = Coordinator:InvokeServer("play")
+	if not reply then -- the player opened another level while the session started
+		return
+	end
+	if reply.playing then -- the claim panel leaves the view during play; Levels brings it back
+		panel.Visible = false
+	else
+		showPanel(reply)
+	end
 end)
 
 -- During play: the move count, caught or escaped, the last note, the keys, and two buttons
@@ -158,6 +172,19 @@ local restartButton =
 local view -- the last state the server sent, with the maze's width and height
 local facing = "up" -- the camera's facing: turning changes only this, so no move is sent
 local mapView = false
+
+-- Sets a HUD label's text; an empty label leaves the view, so it shows no blank box.
+local function say(target, s)
+	target.Text = s
+	target.Visible = s ~= ""
+end
+
+function leave()
+	view, mapView, hud.Visible = nil, false, false
+	say(message, "")
+	workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
+end
+
 local ORDER = { "up", "right", "down", "left" } -- clockwise, so D turns to the next one
 local TURN = {
 	[Enum.KeyCode.A] = -1,
@@ -183,7 +210,10 @@ end
 -- straight down with row 0 at the top as on the web page; the ceiling and the light panels leave
 -- this client's view, and the local character shows again.
 local function aim()
-	local camera, maze = workspace.CurrentCamera, workspace.Maze
+	local camera, maze = workspace.CurrentCamera, workspace:FindFirstChild("Maze")
+	if not maze then -- opening another level removed it
+		return
+	end
 	local goal
 	if mapView then
 		local middle = (Grid.toWorld(view.width, 0) + Grid.toWorld(view.width, view.width * view.height - 1)) / 2
@@ -209,10 +239,13 @@ State.OnClientEvent:Connect(function(sent)
 	controls:Disable()
 	view, facing = sent, sent.facing or facing
 	moves.Text = ("%d move%s"):format(sent.moves, if sent.moves == 1 then "" else "s")
-	status.Text = if sent.state.status == "caught"
-		then "Caught!"
-		elseif sent.state.status == "escaped" then "You escaped!"
-		else ""
+	say(
+		status,
+		if sent.state.status == "caught"
+			then "Caught!"
+			elseif sent.state.status == "escaped" then "You escaped!"
+			else ""
+	)
 	hud.Visible = true
 	aim()
 end)
@@ -234,7 +267,7 @@ local function press(key)
 		task.spawn(function() -- InvokeServer waits for the reply, and a key handler must not wait
 			local reply = Coordinator:InvokeServer("act", name)
 			if reply then
-				message.Text = reply.note or ""
+				say(message, reply.note or "")
 			end
 		end)
 	end
