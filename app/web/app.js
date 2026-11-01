@@ -278,6 +278,10 @@ async function loadStatus() {
 $("make").onsubmit = async (e) => {
   e.preventDefault();
   const req = { template: "maze", brief: $("brief").value };
+  // A "-- watcher: <name>" line in the spec picks the watchers' look. Lean ignores comments, so it
+  // is not part of what is proved; it only joins the brief, which the dress step reads.
+  const look = /^--\s*watcher:\s*(.+)$/im.exec(specText());
+  if (look && !/watcher:/i.test(req.brief)) req.brief = `${req.brief.trim()}${req.brief.trim() ? "; " : ""}watcher: ${look[1].trim()}`;
   const pick = $("spec-pick").value;
   $("generate").disabled = true;
   $("gen-note").className = "note";
