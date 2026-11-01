@@ -111,6 +111,8 @@ lean_check = rv.get("check") or {}
 check("Show why's painted cells pass the runtime's checkRegions, with the coordinator's passing caption",
       status == 200 and lean_check.get("passes") is True
       and (lean_check.get("caption") or "").startswith(server.MAZE_CAPTIONS["passed"]), f"{status} {lean_check}")
+check("Show why's caption starts with \"Until a guard catches you\" (without it the caption is false)",
+      (lean_check.get("caption") or "").startswith("Until a guard catches you"), str(lean_check.get("caption")))
 check("the level reply has no matchesProof and no regionCells",
       status == 200 and "matchesProof" not in rv and "regionCells" not in rv, str(sorted(rv)))
 cells = vault["reveal"]["cellsByTurn"]

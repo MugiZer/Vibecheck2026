@@ -7,8 +7,9 @@ winnable", "exactly one shot wins", or your own Lean statement), and describe
 it in a sentence. Claude designs the level. Lean checks a proof about the exact
 level you then play. Try to beat a rigged level, then press **Show why**: in
 the maze, the game lights the cells that pass Lean's region check, turn by
-turn, and the exit is never lit; in the slingshot, it draws every shot you
-could take, and none of them hits.
+turn; until a guard catches you, you are always on a lit cell, and the exit
+is never lit; in the slingshot, it draws every shot you could take, and none
+of them hits.
 
 Two games:
 
@@ -83,6 +84,7 @@ Repository theorems, judged by `lake comparator` (see `Verification/`):
 |---|---|
 | `maze_regions_sound` | For every maze and every certificate: if the certificate passes `checkRegions`, no list of moves of any length wins. |
 | `maze_isOpen_iff` | The fast bit test for open cells means "on the board and not a wall". |
+| `maze_never_leaves_regions` | For every maze and every list of painted cells (one list per turn of the guards' cycle): if the lists pass `checkRegions`, then after any moves, while the game is on, you stand on a painted cell of the current turn. Show why paints lists like these; each time a level opens, the runtime runs `checkRegions` on the lists it paints. |
 | `upload_ignores_client_name` | The file name a client sends never changes where its upload is stored. |
 | `upload_fixed_shape` | Every stored path is `uploads/<32 lowercase hex digits>/UserSpec.lean`, so it cannot leave `uploads/`. |
 | `upload_never_over_limit` | The bytes the gate lets through never add up to more than the limit, for any chunking. |

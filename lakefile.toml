@@ -38,7 +38,7 @@ root = "UploadGate"
 # The repository's main theorems for `lake comparator` (see Verification/).
 [[lean_lib]]
 name = "Verification"
-roots = ["Verification.Challenge", "Verification.Solution", "Verification.SpecSurface"]
+roots = ["Verification.Challenge", "Verification.Solution", "Verification.SpecSurface", "Verification.Examples"]
 
 # Slingshot template: rules and specs. No `import Lean`.
 [[lean_lib]]

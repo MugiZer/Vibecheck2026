@@ -34,3 +34,11 @@ theorem upload_accepted_iff_within_limit : UploadSpec.AcceptedIffWithinLimit := 
 
 /-- Upload: an accepted upload is written in full. -/
 theorem upload_accepted_writes_everything : UploadSpec.AcceptedWritesEverything := sorry
+
+/-- Maze: Show why paints one list of cells for each turn of the guards' cycle.
+If those lists pass `checkRegions`, then after any list of moves, while the game
+is still on, the player stands on a cell of the list for the current turn. -/
+theorem maze_never_leaves_regions (v : Maze.Variant) (cells : List (List Nat))
+    (h : Maze.checkRegions v (cells.map Maze.maskOfList) = true)
+    (moves : List Maze.Move) (hplay : (Maze.run v moves).status = .playing) :
+    (Maze.run v moves).pos ∈ cells.getD (Maze.run v moves).turn [] := sorry
