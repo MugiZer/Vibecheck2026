@@ -107,6 +107,12 @@ def summary(man):
 
 
 def model_status():
+    if os.environ.get("RIGGED_BACKEND") == "codex":  # Codex reads its own login (codex login)
+        try:
+            import claude_agent_sdk, openai_codex  # noqa: F401  (the SDK still builds the tool server)
+        except ImportError:
+            return False, "Codex backend: openai-codex is not installed (uv pip install --python .venv/bin/python openai-codex)"
+        return True, "ready (Codex)"
     if not os.environ.get("ANTHROPIC_API_KEY"):
         return False, "no ANTHROPIC_API_KEY in the environment"
     try:

@@ -25,6 +25,11 @@ Live generation also needs Linux with `bubblewrap` (the proof sandbox) and
 `ANTHROPIC_API_KEY`; the page shows whether both are ready. On Windows, run
 it inside WSL.
 
+To let Codex design levels instead (`gpt-6.1-sol`, `ultrafast` speed when your
+login offers it): `uv pip install --python .venv/bin/python openai-codex`, log in
+once with `.venv/lib/python3.12/site-packages/codex_cli_bin/bin/codex login`, then
+`RIGGED_BACKEND=codex make run`.
+
 ## How it works
 
 ```
@@ -131,6 +136,7 @@ the surface to review: `templates/maze/Maze/Game.lean` and `Spec.lean`,
   while it compiles.
 - **Search and the agent are not trusted.** They only propose; the kernel and
   `lake comparator` decide.
+- **Codex and the OpenAI model are not trusted either**, the same as Claude.
 
 Not claimed: that a level is fun, looks fair, or that a human cannot react fast
 enough. Those are playtesting questions. A label like "rigged" appears only for
