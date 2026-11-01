@@ -159,6 +159,9 @@ against your uploaded requirement", with its text.
 - One slingshot target; a level's controls are a fixed grid of angles and powers.
 - One generation job at a time, with a time and cost budget. Running out of
   budget is reported as such; it is not a proof that a request is impossible.
+- Levels are designed by Opus 5.5 in fast mode by default.
+  Fast mode costs twice as much, so `RIGGED_BUDGET_USD=3` buys about half the work;
+  raise it if jobs run out of budget.
 - The judge needs Linux (`lake comparator` sandboxes with `bwrap`).
 
 ## Commands
