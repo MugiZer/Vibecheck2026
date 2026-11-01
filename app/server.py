@@ -87,11 +87,21 @@ def artifacts():
     return found
 
 
+def shown_levels():
+    """One level per spec: the newest level made from each requirement (same requestHash). Older
+    levels stay on disk and still open by id; the lists only show the newest."""
+    newest = {}
+    for m in artifacts().values():
+        key = m.get("requestHash") or m["id"]
+        if key not in newest or m["created"] > newest[key]["created"]:
+            newest[key] = m
+    return sorted(newest.values(), key=lambda m: (not m["example"], m["created"]))
+
+
 def backrooms_names():
     """Every level is a room of the Backrooms: "Backrooms 1", "Backrooms 2", ... in list order. The
     story names in the manifests stay on disk (scripts/check.py finds examples by them); no page shows them."""
-    arts = sorted(artifacts().values(), key=lambda m: (not m["example"], m["created"]))
-    return {m["id"]: f"Backrooms {i}" for i, m in enumerate(arts, 1)}
+    return {m["id"]: f"Backrooms {i}" for i, m in enumerate(shown_levels(), 1)}
 
 
 STORY = "Find the exit and get out before a watcher catches you."
@@ -216,7 +226,7 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/samples":
                 return self.send(200, samples())
             if path == "/api/artifacts":
-                arts = sorted(artifacts().values(), key=lambda m: (not m["example"], m["created"]))
+                arts = shown_levels()
                 names = backrooms_names()
                 return self.send(200, [{**summary(m), "title": names[m["id"]]} for m in arts])
             if path.startswith("/api/artifacts/"):
@@ -230,7 +240,7 @@ class Handler(BaseHTTPRequestHandler):
                         pass  # leave drawing out; the level still opens
                 if man.get("label") in templates.ADAPTERS[man["template"]]["claims"]:
                     man["claim"] = templates.claim(man["template"], man["label"])
-                man["presentation"] = {**man["presentation"], "title": backrooms_names()[man["id"]], "story": STORY}
+                man["presentation"] = {**man["presentation"], "title": backrooms_names().get(man["id"], "Backrooms (older copy)"), "story": STORY}
                 d = Path(man["dir"])
                 files = {f: (d / f).read_text() for f in
                          ["UserSpec.lean", "Candidate.lean", "Challenge.lean", "Solution.lean",
