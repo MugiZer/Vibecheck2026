@@ -1,6 +1,6 @@
 name = "rigged"
 version = "0.1.0"
-defaultTargets = ["Maze", "MazeRuntime", "maze", "Sling", "sling", "Upload", "UploadSpec", "upload-gate", "Decor", "DecorSpec", "Verification"]
+defaultTargets = ["Maze", "MazeRuntime", "maze", "Sling", "sling", "Upload", "UploadSpec", "upload-gate", "Decor", "DecorSpec", "decor-gate", "Verification"]
 
 # Maze template: rules, specs, and the certificate checker. No `import Lean`.
 [[lean_lib]]
@@ -41,6 +41,12 @@ roots = ["Decor.Gate"]
 name = "DecorSpec"
 srcDir = "Specs"
 roots = ["DecorSpec.Safe", "DecorSpec.Proofs"]
+
+# Runs the proved decor gate on a model tree (JSON on stdin) or an asset id.
+[[lean_exe]]
+name = "decor-gate"
+srcDir = "app/decor"
+root = "DecorGate"
 
 [[lean_exe]]
 name = "upload-gate"
