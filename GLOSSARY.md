@@ -1,6 +1,6 @@
 # Rigged Arcade
 
-Players ask for a game level and a property it must have. Claude designs the level, Lean proves the property about that exact level, and the player plays it. This file fixes the words the code, docs, and tickets use.
+Players ask for a game level and a property it must have. An AI model (Claude by default) designs the level, Lean proves the property about that exact level, and the player plays it. This file fixes the words the code, docs, and tickets use.
 
 ## Language
 
@@ -49,6 +49,10 @@ _Avoid_: client, frontend, game (for the Roblox side)
 The place file built with Rojo from the repo's Roblox folder and opened in Roblox Studio. It is a renderer: its server script calls the coordinator over HTTP.
 _Avoid_: experience (that word means a published Roblox game, which this effort does not ship), Roblox game
 
+**Watcher**:
+How the Roblox place draws a guard. Same rules, only the look differs: a watcher stands where the runtime says the guard is.
+_Avoid_: monster, entity
+
 **Decor**:
 Creator Store models placed in a Roblox level for looks only: props, or NPC models when the brief asks for them. Decor never changes play.
 _Avoid_: assets, items (alone), furniture
@@ -60,6 +64,9 @@ _Avoid_: sanitizer, filter, scanner
 **Dress step**:
 `make dress`. With Studio in Edit mode, before Play, it fills the pool `ServerStorage.DressPool` in the open place with the art kit and each level's decor. It removes every class the decor gate does not allow from each model, and keeps a model only if the gate accepts it. The pool is lost when the place closes, so run it again each time Studio opens the place.
 _Avoid_: import, insert step
+
+**Watcher look**:
+The model that gives the watchers their body and face in the Roblox place. The place takes the first that works: the level's own decor watcher; a cached look that the level's brief names with `watcher: <name>` (a model in `DressPool.Looks`); the art watcher (`DressPool.Art.Watcher`); a plain shape. It uses a model only if the model carries `checkedNodes`, the number of instances the decor gate checked.
 
 **Show why**:
 The view that draws a level's proof evidence: the cells that pass Lean's region check on each guard turn; until a guard catches you, you are always on one.

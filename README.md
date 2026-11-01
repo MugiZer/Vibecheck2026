@@ -4,11 +4,11 @@
 
 Pick what you want to be true about a maze ("impossible, but looks
 winnable", "can be won", or your own Lean statement), and describe it in a
-sentence. Claude designs the level. Lean checks a proof about the exact
-level you then play. Try to beat a rigged level, then press **Show why**: in
-the game lights the cells that pass Lean's region check, turn by turn;
-until a guard catches you, you are always on a lit cell, and the exit is
-never lit.
+sentence. An AI model (Claude by default) designs the level. Lean checks a
+proof about the exact level you then play. Try to beat a rigged level, then
+press **Show why**: in the game lights the cells that pass Lean's region
+check, turn by turn; until a guard catches you, you are always on a lit
+cell, and the exit is never lit.
 
 The game is a turn-based maze: reach the exit (after any gems), and dodge
 guards that walk fixed loops. You move one cell (or wait), then every guard
@@ -25,6 +25,10 @@ Live generation also needs Linux with `bubblewrap` (the proof sandbox) and
 `ANTHROPIC_API_KEY`; the page shows whether both are ready. On Windows, run
 it inside WSL.
 
+The maze also plays inside Roblox Studio as a first-person Backrooms-style
+game (see "Play it in Roblox Studio" below). The web page stays the main way
+to run it.
+
 To let Codex design levels instead (`gpt-6.1-sol`, `ultrafast` speed when your
 login offers it): `uv pip install --python .venv/bin/python openai-codex`, log in
 once with `.venv/lib/python3.12/site-packages/codex_cli_bin/bin/codex login`, then
@@ -33,7 +37,8 @@ once with `.venv/lib/python3.12/site-packages/codex_cli_bin/bin/codex login`, th
 ## How it works
 
 ```
-browser ──HTTP──> coordinator (app/server.py, Python stdlib)
+Roblox place ─┐   (server Script, HttpService)
+browser ──HTTP┴─> coordinator (app/server.py, Python stdlib)
                     ├─ upload gate (Lean exe): stores and size-limits uploads
                     ├─ game runtime (Lean exe: maze): every move
                     ├─ agent (app/agent.py, Claude Agent SDK) ─ tools ─┐
@@ -64,6 +69,92 @@ browser ──HTTP──> coordinator (app/server.py, Python stdlib)
    and refuses to start unless it matches the judged `Candidate.lean` byte for
    byte, and refuses levels judged against an older template.
 
+## Play it in Roblox Studio
+
+The same levels play in Roblox Studio as a first-person Backrooms game. You
+need Roblox Studio on Windows and this repo in WSL. The place lists the maze
+levels (the newest level made from each requirement) and shows each level's
+claim. You walk the maze, and every step is a reply from the Lean runtime: the
+place only draws it. **Show why** is a button on the play screen. On a rigged
+level the lights go out, the camera rises, and the checked cells glow one
+guard turn at a time. The watchers stand where the runtime puts them on that
+turn (`drawing.guardsByTurn`). The caption is the one the coordinator sends
+(`reveal.check.caption`), shown as it is. On a fair level, Show why replays a
+winning route.
+
+1. In WSL: `make run`. This starts the coordinator on `http://127.0.0.1:8642`;
+   the place calls it.
+2. In WSL: `make roblox`. It builds `build/RiggedArcade.rbxlx` with Rojo 7.7.1
+   and checks the Luau with selene. The first run downloads both, and the Rojo
+   plugin, into `.tools/` (each checked against a pinned SHA-256). The
+   coordinator address is one value: `make roblox ROBLOX_URL=http://...`.
+3. On Windows, open that file in Roblox Studio: File > Open from File >
+   `\\wsl$\<your distro>\<path to the repo>\build\RiggedArcade.rbxlx`. Do not
+   save the place: `make roblox` builds it again.
+4. Optional, live sync while you edit `roblox/`: run `make roblox-serve`, copy
+   `.tools/Rojo.rbxm` to `%LOCALAPPDATA%\Roblox\Plugins\` (restart Studio if it
+   was open), then Plugins > Rojo > Connect (`localhost`, port `34872`).
+5. Optional, art and decor: with the place open in Edit mode, run `make dress`
+   (below). Studio must then stay open, because the art lives only in the open
+   place.
+6. Press **Play** (F5). Keys: W step, A/D turn, S turn around, Space wait,
+   R restart, M map. The place's server script calls the coordinator, and
+   the place's Output goes to `build/roblox.log`.
+
+**Play in Roblox.** While the place is playing, the web page's **Play in
+Roblox** button opens that level in the place and starts it, as a click on the
+level and Play would. The place asks the coordinator for the last level sent
+(`GET /api/roblox/play`) once a second.
+
+**Art and decor (`make dress`).** Run it with Studio in Edit mode, before Play.
+It needs the decor gate built (`make install` does that) and Roblox's Studio
+MCP, a program that lets scripts control Studio. `app/studio.py` starts it
+through a small script that runs Roblox's `mcp.bat` (not in the repo; its path
+is `LAUNCHER` in `app/studio.py`). The decor gate is the Lean program that
+decides which Creator Store models may enter the scene; "What is proved" lists
+its theorems. `make dress` empties and refills the folder
+`ServerStorage.DressPool` in the open place with:
+
+- the art kit: a ceiling light and a watcher;
+- each maze level's decor props, from the level's `decor.json` or found by
+  searching the Creator Store with words from its brief or title;
+- three surfaces (wall, floor, ceiling) from the Backrooms Material Pack, once
+  you set their numbers at the top of `app/dress.py`.
+
+From each model it deletes every script and every other class the gate does not
+allow, asks the gate, and keeps the model only if the gate says yes. A last
+sweep destroys the whole pool if anything not allowed is left (`python3
+app/dress.py --check` runs just that sweep). It refuses to run during Play.
+Without the pool, the place uses plain built-in materials, lights and
+watchers. Decor props stand against walls and in corners, away from the start,
+the exit, the gems, and every cell a watcher walks on.
+
+**Watcher looks.** Each watcher gets the first of these that works:
+
+1. The level's own decor watcher (found by `make dress`).
+2. A cached look that the level's brief names. Write `watcher: <name>` in the
+   "Describe the place" field on the web page, or a comment line
+   `-- watcher: <name>` in your Lean requirement (Lean ignores it, so it is not
+   part of what is proved). The place looks for a model with that name, in
+   lower case, in `ServerStorage.DressPool.Looks`.
+3. The art watcher, `ServerStorage.DressPool.Art.Watcher`.
+4. A plain dark shape.
+
+`make dress` does not fill `Looks`, and it empties the pool first, so add
+cached looks by hand afterwards. Our demo place has three (`subaru natsuki`,
+`bernie sanders`, `jon snow`), and its art watcher is Subaru Natsuki. The scene
+uses a model only if it carries `checkedNodes` (the number of instances the
+decor gate checked) and a fresh clone still has that many.
+
+Check by hand after a change:
+
+- Play shows "Coordinator ready", and the level list shows the maze levels,
+  the same ones as the web page.
+- A level shows its claim, and Play starts it.
+- In a rigged maze a watcher catches you. R restarts. M switches the map view.
+- Show why glows the checked cells under the coordinator's caption. On a fair
+  level it replays the route to "You escaped!".
+
 ## Why the proofs are about the game you play
 
 The rules are executable Lean, and the same functions are what the game runs.
@@ -71,6 +162,12 @@ The rules are executable Lean, and the same functions are what the game runs.
 - Maze: each move you make is replayed with `Maze.run`, the function the
   theorems are about. The browser holds no rules; it draws the state the
   runtime returns.
+
+Neither renderer decides a move, a win, or a level: not the browser, and not
+the Roblox place. Each draws the state the runtime returns. The cells Show why
+lights come with the level, and the runtime checks exactly those cells with
+`checkRegions` each time a level opens. The guard positions for each Show why
+turn come from the runtime (`drawing`) each time a level opens.
 
 ## What is proved
 
@@ -98,7 +195,8 @@ Repository theorems, judged by `lake comparator` (see `Verification/`):
 | `decor_smaller_stays_accepted` | Deleting instances from an accepted model keeps it accepted. `Clone()` deletes instances that are not `Archivable`. |
 | `decor_id_is_digits_only` | An accepted asset id has 1 to 19 characters, all digits 0–9. So it has no quote, bracket or line break. |
 
-The decor gate is proved and judged here, but the Roblox place does not use it yet.
+`make dress` runs the decor gate on each model it puts into the Roblox place.
+What these proofs do not cover is listed under "What is trusted".
 
 Per published level, one theorem `accepted` about that exact level:
 
@@ -126,7 +224,8 @@ the surface to review: `templates/maze/Maze/Game.lean` and `Spec.lean`,
 - **The Lean compiler, while you play.** The running game is compiled code of
   the proved functions. The kernel checked the theorems about those functions.
 - **Not proved:** the JSON adapters, the Python coordinator, HTTP, the browser
-  drawing, and the upload gate's file-system calls and read loop (which calls
+  drawing, the Roblox place (next bullets), and the upload gate's
+  file-system calls and read loop (which calls
   the proved `Upload.admit` before writing each chunk of at most 64 KiB).
   The runtime's compiled `checkRegions` checks Show why's glowing cells each
   time a level is opened. The caption beside them comes from the coordinator
@@ -134,6 +233,28 @@ the surface to review: `templates/maze/Maze/Game.lean` and `Spec.lean`,
   `make check` tests these through the real endpoints. The `bwrap` sandbox and
   the operating system are trusted to isolate uploaded Lean, which can run code
   while it compiles.
+- **The Roblox place is an untrusted renderer**, like the browser: it decides
+  no move, win, or level. Not proved: Roblox Studio, the place's Luau scripts,
+  `HttpService`, and the localhost path from Windows to the coordinator in WSL.
+  In-game text does not go through Roblox's `TextService` filter, because the
+  place runs only in Studio and is not published.
+- **The decor gate** (`app/decor/`, proved in `Specs/DecorSpec/`) decides
+  whether a Creator Store model may go into the scene. The proofs cover that
+  decision. Not proved: that the Luau in `app/dress.py` reports a model's tree
+  truthfully (sizes, positions, turns; a model reported with all sizes zero
+  would pass the box rule); that the scene uses the model the gate checked (it
+  only compares the number of instances with the model's `checkedNodes`; the
+  cached watcher looks, added by hand, are trusted to have passed the gate);
+  the JSON reader in `decor-gate`; Roblox's `ClassName`; and what a picture on a
+  model shows (the gate cannot see pixels).
+- **Models and art also rely on** the Studio MCP (it inserts the models we ask
+  for and runs our Luau as written), Roblox Studio itself, and the Creator
+  Store. The MaterialVariants (the wall, floor and ceiling surfaces) are not
+  models, so the gate does not check them: the dress step keeps only instances
+  whose class is exactly `MaterialVariant` and removes their children.
+- **Decor is visual only.** Every decor part is anchored, with collisions,
+  touch events and queries off. Decor never changes a move, a win, or where a
+  watcher stands; the runtime decides those.
 - **Search and the agent are not trusted.** They only propose; the kernel and
   `lake comparator` decide.
 - **Codex and the OpenAI model are not trusted either**, the same as Claude.
@@ -154,15 +275,21 @@ against your uploaded requirement", with its text.
   Fast mode costs twice as much, so `RIGGED_BUDGET_USD=3` buys about half the work;
   raise it if jobs run out of budget.
 - The judge needs Linux (`lake comparator` sandboxes with `bwrap`).
+- The Roblox place is a Studio-only demo: one player, not published. Its art
+  pool is lost each time Studio closes the place, so run `make dress` again
+  before the next Play.
 
 ## Commands
 
 ```sh
-make install    # Lean, the game, all proofs, Python env
-make run        # the app on :8642
-make verify     # axioms + trusted definitions per theorem, then lake comparator on Verification/
-make check      # acceptance checks against the judge, runtime, and upload endpoint (server running)
-make examples   # rebuild the shipped levels through the judge
+make install       # Lean, the game, all proofs, Python env
+make run           # the app on :8642
+make verify        # axioms + trusted definitions per theorem, then lake comparator on Verification/
+make check         # acceptance checks against the judge, runtime, and upload endpoint (server running)
+make examples      # rebuild the shipped levels through the judge
+make roblox        # build the Roblox place build/RiggedArcade.rbxlx (gets Rojo and selene into .tools/)
+make roblox-serve  # live-sync roblox/ into the place open in Studio (never the art)
+make dress         # fill the place open in Studio with the art kit and each level's decor (Edit mode, before Play)
 ```
 
 ## Layout
@@ -171,12 +298,38 @@ make examples   # rebuild the shipped levels through the judge
 templates/maze/      Maze/Game.lean (rules) · Spec.lean · Cert.lean (certificate + soundness) · runtime · GUIDE.md
 app/upload/          Upload/Store.lean (storage decision, size limit) · UploadGate.lean (the gate)
 Specs/UploadSpec/    readable upload specs and their proofs
+app/decor/           Decor/Gate.lean (the decor gate, proved) · DecorGate.lean (its program)
+Specs/DecorSpec/     readable decor specs and their proofs
 Verification/        repository challenge, solution, audit
 app/                 server.py · verify.py (judge) · agent.py · templates.py · web/
+                     dress.py (make dress) · studio.py (Studio MCP) · decor_gate.py
 samples/             reviewed sample requirements per game
 examples/            shipped levels, each a self-contained judged Lean project
 scripts/             make_examples.py · check.py
+roblox/              Rojo project for the Roblox place (renderer only)
 ```
+
+## Art credits
+
+All art comes from the Roblox Creator Store and is used inside Roblox Studio
+only. No model file is stored in the repo (`roblox/art/` is git-ignored),
+because Roblox content may be used on Roblox only. `make dress` inserts models
+into the open place by id.
+
+- Art kit, inserted by `make dress`: Roof Light (12737467199) by
+  SillyGoofyDumb, backrooms monster (10699449494) by mihopb1, and Yasu's
+  Backrooms Material Pack (89043606186394) by mvyasu.
+- Watcher looks in our demo place: Subaru Natsuki (122480168835819) by O_Kar,
+  "annoying robot with bernie sanders face" (1192620519) by Arsaw (kept under
+  the name `bernie sanders`), and Jon Snow (934805927) by Aethanius.
+- Decor props: Creator Store models picked per level, from its `decor.json` or
+  searched for among free models from verified creators. The dress step does
+  not record which model it took, so props are not credited one by one.
+- Sounds, Roblox audio used by id and never stored: light hum 9112823813
+  (Light Bulb Buzz 2, ProSoundEffects), room tone 9125446564 (Command Room Tone
+  Deep Air Conditioning Hum, ProSoundEffects), drone 1843770413 (Low Drone 42,
+  APMOfficial), and light switch click 9120484192 (Wall Light Switch 2,
+  ProSoundEffects).
 
 Built for the Vibecheck hackathon. Plan and reasoning: `ARCHITECTURE.md`,
 `UPLOAD_SECURITY.md`, `RULES.md`.
