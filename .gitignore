@@ -5,3 +5,5 @@ artifacts/
 scratch/
 __pycache__/
 .venv/
+templates/pac-man/
+templates/angry-aliens-phaser/
