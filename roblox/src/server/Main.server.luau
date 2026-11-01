@@ -6,6 +6,9 @@ local LogService = game:GetService("LogService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
+local Grid = require(ReplicatedStorage.Shared.Grid)
+local Scene = require(script.Parent.Scene)
+
 local BASE = ServerStorage.CoordinatorUrl.Value -- written by make roblox (ROBLOX_URL)
 
 -- One coordinator request, JSON in and out. Returns the status code and the decoded
@@ -127,6 +130,22 @@ function ops.play(player)
 		tostring(body.state.pos)
 	)
 	print(line)
+	Scene.build(open.detail, body.state)
+
+	-- The avatar. Characters do not load by themselves (CharacterAutoLoads is off), so nothing
+	-- falls or respawns while the level list is open.
+	local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+	if not humanoid or humanoid.Health <= 0 then
+		player:LoadCharacter()
+		humanoid = player.Character:WaitForChild("Humanoid")
+	end
+	local root = player.Character:WaitForChild("HumanoidRootPart")
+	root.Anchored = true -- only the server moves it, to the cell the runtime returned
+	local width = open.detail.variant.width
+	-- shortcut: R15 height (an R6 avatar stands 2 studs into the floor), add the leg height if the place allows R6
+	local at = Grid.toWorld(width, body.state.pos) + Vector3.new(0, humanoid.HipHeight + root.Size.Y / 2, 0)
+	root.CFrame = CFrame.lookAt(at, at + Grid.FACING.up)
+	ReplicatedStorage.State:FireClient(player, { state = body.state, facing = "up", width = width })
 	return { note = line }
 end
 

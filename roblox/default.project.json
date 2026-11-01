@@ -4,6 +4,21 @@
     "$className": "DataModel",
     "HttpService": { "$className": "HttpService", "$properties": { "HttpEnabled": true } },
     "Players": { "$className": "Players", "$properties": { "CharacterAutoLoads": false } },
+    "Lighting": {
+      "$className": "Lighting",
+      "$properties": {
+        "LightingStyle": "Realistic",
+        "PrioritizeLightingQuality": true,
+        "Ambient": [0.0706, 0.0627, 0.0549],
+        "OutdoorAmbient": [0, 0, 0],
+        "ClockTime": 0
+      },
+      "ColorCorrection": {
+        "$className": "ColorCorrectionEffect",
+        "$properties": { "Saturation": -0.2, "TintColor": [1, 0.9608, 0.8431], "Contrast": 0.05 }
+      },
+      "Bloom": { "$className": "BloomEffect", "$properties": { "Intensity": 0.5, "Size": 24, "Threshold": 1 } }
+    },
     "ServerStorage": {
       "$className": "ServerStorage",
       "CoordinatorUrl": { "$path": "CoordinatorUrl.txt" },

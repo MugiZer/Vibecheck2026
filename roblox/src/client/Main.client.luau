@@ -1,11 +1,14 @@
--- Shows the coordinator status, the level list, and the claim panel, and sends this
--- client's Output lines to the server Script, which forwards them to build/roblox.log.
+-- Shows the coordinator status, the level list, and the claim panel, sets the first-person
+-- camera after Play, and sends this client's Output lines to the server Script, which
+-- forwards them to build/roblox.log.
 local LogService = game:GetService("LogService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Log = ReplicatedStorage:WaitForChild("Log")
 local Coordinator = ReplicatedStorage:WaitForChild("Coordinator")
+local State = ReplicatedStorage:WaitForChild("State")
+local Grid = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Grid"))
 LogService.MessageOut:Connect(function(message, messageType)
 	Log:FireServer(messageType.Name .. " " .. message)
 end)
@@ -115,6 +118,22 @@ end
 levels.Activated:Connect(openList)
 play.Activated:Connect(function()
 	showPanel(Coordinator:InvokeServer("play"))
+end)
+
+-- First person: the server sends the session state and the facing. The camera stands at eye
+-- height in the avatar's cell and looks along the facing; the local character is hidden.
+State.OnClientEvent:Connect(function(view)
+	-- The character first: when it spawns, Roblox resets the camera.
+	local character = Players.LocalPlayer.Character or Players.LocalPlayer.CharacterAdded:Wait()
+	local camera = workspace.CurrentCamera
+	local eye = Grid.toWorld(view.width, view.state.pos) + Vector3.new(0, Grid.EYE_HEIGHT, 0)
+	camera.CameraType = Enum.CameraType.Scriptable
+	camera.CFrame = CFrame.lookAt(eye, eye + Grid.FACING[view.facing])
+	for _, d in character:GetDescendants() do
+		if d:IsA("BasePart") or d:IsA("Decal") then
+			d.LocalTransparencyModifier = 1
+		end
+	end
 end)
 
 -- The list opens when the coordinator first answers (the server Script's status loop).
