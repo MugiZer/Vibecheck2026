@@ -40,6 +40,15 @@ local MARK = { -- on the floor of a guard's next cell: faint red, as on the web 
 	CanCollide = false,
 	CanQuery = false,
 }
+local GLOW = { -- a checked cell in Show why (ticket 12): a thin green tile on the floor
+	Material = Enum.Material.Neon,
+	Color = Color3.fromRGB(80, 255, 120),
+	Size = Vector3.new(7, 0.06, 7),
+	CanCollide = false,
+	CanQuery = false,
+}
+local EXIT_RED = Color3.fromRGB(255, 60, 60) -- the exit during Show why on a rigged maze
+local CLICK = { SoundId = "rbxassetid://9120484192", Volume = 0.5 } -- the light switch, when the lights cut out
 local HUM = { SoundId = "rbxassetid://9112823813", Volume = 0.06, RollOffMinDistance = 2, RollOffMaxDistance = 14 }
 local HUMS = 8 -- at most this many lights hum
 local ROOM_TONE = { SoundId = "rbxassetid://9125446564", Volume = 0.15 }
@@ -241,19 +250,56 @@ end
 
 local Scene = {}
 local ambience = false -- the room tone and the drone start at the first build and keep playing
-local drawn -- what Scene.update moves: { maze, width, gems, watchers, marks }
+local drawn -- what Scene.update moves: { maze, width, gems, watchers, marks, exit, glow, materials }
 
--- Moves the scene to a reply's state: each watcher to its cell in state.guards (with PivotTo, so
--- any look moves the same way), each mark to its guard's cell in state.guardsNext, and gem i out
--- of view while state.collected[i] is true.
-function Scene.update(state)
+-- Stands each watcher on its cell in guards, a list of cells in guard order (with PivotTo, so any
+-- look moves the same way).
+function Scene.watchers(guards)
 	for i, watcher in drawn.watchers do
 		local _, size = watcher:GetBoundingBox()
-		watcher:PivotTo(CFrame.new(Grid.toWorld(drawn.width, state.guards[i]) + Vector3.new(0, size.Y / 2, 0)))
-		drawn.marks[i].Position = Grid.toWorld(drawn.width, state.guardsNext[i]) + Vector3.new(0, MARK.Size.Y / 2, 0)
+		watcher:PivotTo(CFrame.new(Grid.toWorld(drawn.width, guards[i]) + Vector3.new(0, size.Y / 2, 0)))
+	end
+end
+
+-- Moves the scene to a reply's state: each watcher to its cell in state.guards, each mark to its
+-- guard's cell in state.guardsNext, and gem i out of view while state.collected[i] is true.
+function Scene.update(state)
+	Scene.watchers(state.guards)
+	for i, mark in drawn.marks do
+		mark.Position = Grid.toWorld(drawn.width, state.guardsNext[i]) + Vector3.new(0, MARK.Size.Y / 2, 0)
 	end
 	for i, gem in drawn.gems do
 		gem.Parent = if state.collected[i] then nil else drawn.maze
+	end
+end
+
+-- Show why: a glow tile on the floor of each cell in cells, in place of the last ones.
+function Scene.glow(cells)
+	drawn.glow:ClearAllChildren()
+	for _, c in cells do
+		part(drawn.glow, GLOW, { Position = Grid.toWorld(drawn.width, c) + Vector3.new(0, GLOW.Size.Y / 2, 0) })
+	end
+end
+
+-- Show why on a rigged maze. on = true: every light under Lights goes out, the light panels turn to
+-- SmoothPlastic, the switch clicks, the exit turns red, and the next-cell marks leave the view (as
+-- on the web page). on = false: all of it comes back, and the glow tiles go.
+function Scene.reveal(on)
+	for _, d in drawn.maze.Lights:GetDescendants() do
+		if d:IsA("Light") then
+			d.Enabled = not on
+		elseif d:IsA("BasePart") then
+			drawn.materials[d] = drawn.materials[d] or d.Material
+			d.Material = if on then Enum.Material.SmoothPlastic else drawn.materials[d]
+		end
+	end
+	drawn.exit.Color = if on then EXIT_RED else EXIT.Color
+	for _, mark in drawn.marks do
+		mark.Transparency = if on then 1 else MARK.Transparency
+	end
+	Scene.glow({})
+	if on then
+		new("Sound", drawn.maze, CLICK):Play()
 	end
 end
 
@@ -324,8 +370,18 @@ function Scene.build(detail, state)
 	end
 
 	local exitAt = Grid.toWorld(width, variant.exit) + Vector3.new(0, EXIT.Size.Y / 2, 0)
-	new("PointLight", part(maze, EXIT, { Position = exitAt }), EXIT_LIGHT)
-	drawn = { maze = maze, width = width, gems = {}, watchers = {}, marks = {} }
+	local exit = part(maze, EXIT, { Position = exitAt })
+	new("PointLight", exit, EXIT_LIGHT)
+	drawn = {
+		maze = maze,
+		width = width,
+		gems = {},
+		watchers = {},
+		marks = {},
+		exit = exit,
+		glow = new("Folder", maze, { Name = "Glow" }), -- Show why's tiles
+		materials = {}, -- each light part's own material, while Show why has the lights out
+	}
 	for _, c in variant.gems do -- in the order of variant.gems, which state.collected follows
 		local gemAt = Grid.toWorld(width, c) + Vector3.new(0, GEM_HEIGHT, 0)
 		local gem = part(maze, GEM, { Position = gemAt })

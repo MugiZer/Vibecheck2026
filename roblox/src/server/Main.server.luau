@@ -1,6 +1,6 @@
 -- The place's only HTTP caller (a LocalScript cannot use HttpService). It asks the
 -- coordinator for its status, forwards every Output line to build/roblox.log, and
--- answers the client's level list, claim panel, Play, and moves.
+-- answers the client's level list, claim panel, Play, moves, and Show why.
 local HttpService = game:GetService("HttpService")
 local LogService = game:GetService("LogService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -59,7 +59,7 @@ end)
 -- session stay here.
 local TAGS = { unwinnable = "rigged", winnable = "fair", ["exactly-one"] = "one shot" } -- as on the web page
 -- shortcut: one player per Play Solo session, and sessions are never cleaned up (here or on the coordinator); upgrade when the place is published or has more than one player
-local byPlayer = {} -- [player] = { detail = <the open level's detail>, session = { sessionId, seq, artifactId, busy } }
+local byPlayer = {} -- [player] = { detail = <the open level's detail>, session = { sessionId, seq, artifactId, busy }, state = <the last state shown>, run = <set while Show why runs> }
 
 -- The text for a request that did not get a 200: the server's error, or how to start it.
 local function why(body)
@@ -89,6 +89,7 @@ end
 -- Stands the avatar on cell state.pos and sends the client the state to show. Only the server
 -- moves the avatar, and only to the cell the runtime returned.
 local function show(player, open, state, moves, facing)
+	open.state = state
 	local variant, character = open.detail.variant, player.Character
 	local root = character.HumanoidRootPart
 	-- shortcut: R15 height (an R6 avatar stands 2 studs into the floor), add the leg height if the place allows R6
@@ -104,6 +105,26 @@ local function show(player, open, state, moves, facing)
 end
 
 local ops = {}
+
+-- Stops Show why if it runs: the lights, the glow, the exit, and the avatar come back, the watchers
+-- return to the last state's guards, and the client's ShowWhy attributes clear.
+local function stopWhy(player, open)
+	local run = open.run
+	if not run then
+		return
+	end
+	open.run = nil
+	if run.hidden then -- a rigged maze
+		Scene.reveal(false)
+		for d, transparency in run.hidden do
+			d.Transparency = transparency
+		end
+	end
+	Scene.update(open.state)
+	player:SetAttribute("ShowWhy", nil)
+	player:SetAttribute("ShowWhyTurn", nil)
+	print("[showwhy] stop")
+end
 
 function ops.levels()
 	local code, levels = call("GET", "/api/artifacts")
@@ -121,7 +142,10 @@ function ops.levels()
 end
 
 function ops.open(player, id)
-	-- Opening a level leaves the one being played: its session and its maze go.
+	-- Opening a level leaves the one being played: its Show why, its session, and its maze go.
+	if byPlayer[player] then
+		stopWhy(player, byPlayer[player])
+	end
 	byPlayer[player] = nil
 	if workspace:FindFirstChild("Maze") then
 		workspace.Maze:Destroy()
@@ -190,7 +214,8 @@ function ops.play(player)
 	humanoid.WalkSpeed, humanoid.JumpHeight = 0, 0 -- the avatar never walks or jumps by itself
 	player.Character:WaitForChild("HumanoidRootPart").Anchored = true -- only the server moves it, to the cell the runtime returned
 	show(player, open, body.state, 0, "up")
-	return { note = line, playing = true }
+	local reveal = open.detail.reveal or {}
+	return { note = line, playing = true, showWhy = reveal.check ~= nil or reveal.winningMoves ~= nil }
 end
 
 -- A key press from the client: one move in flight per session, always with the seq from the
@@ -237,6 +262,72 @@ function ops.act(player, name)
 	end
 	session.busy = false
 	return reply
+end
+
+-- Show why on the play screen (ticket 12). The world changes happen here; the client shows the
+-- player attributes ShowWhy (the caption, set while Show why runs) and ShowWhyTurn (rigged mazes).
+-- arg "stop" (a game key) only stops; the Show why button starts or stops.
+function ops.showwhy(player, arg)
+	local open = byPlayer[player]
+	local session = open and open.session
+	if not session then
+		return nil
+	end
+	if open.run or arg == "stop" then
+		stopWhy(player, open)
+		return nil
+	end
+	local reveal, run = open.detail.reveal or {}, {}
+	if reveal.check then -- a rigged maze: the checked cells and the guards, turn by turn
+		open.run, run.hidden = run, {}
+		print(("[showwhy] start rigged, cycle %d"):format(reveal.cycle))
+		Scene.reveal(true)
+		for _, d in player.Character:GetDescendants() do -- the avatar leaves the view, as on the web page
+			if d:IsA("BasePart") or d:IsA("Decal") then
+				run.hidden[d], d.Transparency = d.Transparency, 1
+			end
+		end
+		player:SetAttribute("ShowWhy", reveal.check.caption)
+		local guardsByTurn = open.detail.drawing and open.detail.drawing.guardsByTurn
+		task.spawn(function()
+			local t = 0
+			while open.run == run do
+				player:SetAttribute("ShowWhyTurn", ("Turn %d of %d"):format(t + 1, reveal.cycle))
+				Scene.glow(if reveal.check.passes then reveal.cellsByTurn[t + 1] or {} else {})
+				local guards = guardsByTurn and guardsByTurn[t + 1] -- no drawing (an old runtime process): the watchers stay
+				if guards then
+					Scene.watchers(guards)
+				end
+				task.wait(0.7)
+				t = (t + 1) % reveal.cycle
+			end
+		end)
+		return {}
+	elseif reveal.winningMoves then -- a fair maze: the winning route, every move a runtime reply
+		open.run = run
+		print("[showwhy] start fair, cycle 0")
+		player:SetAttribute("ShowWhy", open.detail.claim .. "\n\nReplaying the winning route through the Lean runtime.")
+		local moves, reply = table.clone(reveal.winningMoves), {}
+		table.insert(moves, 1, "reset")
+		for _, name in moves do
+			while session.busy do -- one move in flight, as in play: wait for the player's last move
+				task.wait()
+			end
+			if open.run ~= run then -- stopped
+				return reply
+			end
+			reply = ops.act(player, name) or {}
+			if open.session ~= session then -- a 404 started a new session: Show why stops
+				break
+			end
+			task.wait(0.4)
+		end
+		if open.run == run then -- the route ended; play goes on from here, as on the web page
+			stopWhy(player, open)
+		end
+		return reply
+	end
+	return nil
 end
 
 ReplicatedStorage.Coordinator.OnServerInvoke = function(player, op, arg)

@@ -107,6 +107,7 @@ local function showPanel(view)
 end
 
 local leave -- clears the last level's HUD, map view, and camera; defined with the HUD below
+local showWhy -- the Show why button, made with the HUD below
 
 local function openList() -- fetched each time, so levels made during play appear
 	local found, err = Coordinator:InvokeServer("levels")
@@ -144,13 +145,14 @@ play.Activated:Connect(function()
 	end
 	if reply.playing then -- the claim panel leaves the view during play; Levels brings it back
 		panel.Visible = false
+		showWhy.Visible = reply.showWhy == true -- a level with no reveal has no Show why
 	else
 		showPanel(reply)
 	end
 end)
 
--- During play: the move count, caught or escaped, the last note, the keys, and two buttons
--- that do what Space and R do.
+-- During play: the Show why caption and turn, the move count, caught or escaped, the last note,
+-- the keys, two buttons that do what Space and R do, and Show why.
 local hud = new("Frame", {
 	Name = "Hud",
 	Visible = false,
@@ -168,6 +170,12 @@ text("Hint", 4, hud).Text = "W step · A/D turn · S turn around · Space wait �
 local waitButton = new("TextButton", { Name = "Wait", Text = "Wait", LayoutOrder = 5, Size = UDim2.fromOffset(120, 36), Parent = hud })
 local restartButton =
 	new("TextButton", { Name = "Restart", Text = "Restart", LayoutOrder = 6, Size = UDim2.fromOffset(120, 36), Parent = hud })
+showWhy = new(
+	"TextButton",
+	{ Name = "ShowWhy", Text = "Show why", LayoutOrder = 7, Size = UDim2.fromOffset(120, 36), Visible = false, Parent = hud }
+)
+local caption = text("Caption", -2, hud) -- the coordinator's caption while Show why runs
+local turn = text("Turn", -1, hud)
 
 local view -- the last state the server sent, with the maze's width and height
 local facing = "up" -- the camera's facing: turning changes only this, so no move is sent
@@ -250,9 +258,39 @@ State.OnClientEvent:Connect(function(sent)
 	aim()
 end)
 
+-- Show why: the server Script sets the ShowWhy attribute (the caption) while it runs, and ShowWhyTurn
+-- on a rigged maze. While it runs the camera looks down on the maze; when it stops, first person.
+local me = Players.LocalPlayer
+local function whyChanged()
+	local shown = me:GetAttribute("ShowWhy")
+	say(caption, shown or "")
+	say(turn, me:GetAttribute("ShowWhyTurn") or "")
+	showWhy.Text = if shown then "Stop" else "Show why"
+	mapView = shown ~= nil
+	if view then
+		aim()
+	end
+end
+me:GetAttributeChangedSignal("ShowWhy"):Connect(whyChanged)
+me:GetAttributeChangedSignal("ShowWhyTurn"):Connect(function()
+	say(turn, me:GetAttribute("ShowWhyTurn") or "")
+end)
+whyChanged()
+showWhy.Activated:Connect(function()
+	local reply = Coordinator:InvokeServer("showwhy") -- on a fair maze, returns when the replay ends
+	if reply then
+		say(message, reply.note or "")
+	end
+end)
+
 -- One key: W steps along the facing, A, D, and S turn, Space waits, R restarts, M switches the
--- map view. The server Script drops a move while another is in flight.
+-- map view. The server Script drops a move while another is in flight. While Show why runs, any
+-- game key only stops it.
 local function press(key)
+	if me:GetAttribute("ShowWhy") then
+		task.spawn(Coordinator.InvokeServer, Coordinator, "showwhy", "stop")
+		return
+	end
 	if not view or (view.state.status ~= "playing" and key ~= Enum.KeyCode.R) then
 		return -- after caught or escaped only R works, as on the web page
 	end
