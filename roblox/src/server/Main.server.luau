@@ -337,4 +337,26 @@ ReplicatedStorage.Coordinator.OnServerInvoke = function(player, op, arg)
 	return nil
 end
 
+-- "Play in Roblox" on the web page: poll the coordinator once a second; when its send count changes,
+-- every player's client opens that level and presses Play (attribute RemoteOpen = "<id>#<n>").
+-- The first reading is only remembered, so a send from before this Play does not fire.
+task.spawn(function()
+	local Players = game:GetService("Players")
+	local last
+	while true do
+		local code, body = call("GET", "/api/roblox/play", nil, 5)
+		if code == 200 and type(body) == "table" and type(body.n) == "number" then
+			local id = body.id
+			if last ~= nil and body.n ~= last and type(id) == "string" and id:match("^[%w_%-]+$") then
+				print("[remote] open " .. id)
+				for _, p in Players:GetPlayers() do
+					p:SetAttribute("RemoteOpen", id .. "#" .. body.n)
+				end
+			end
+			last = body.n
+		end
+		task.wait(1)
+	end
+end)
+
 waitForCoordinator()

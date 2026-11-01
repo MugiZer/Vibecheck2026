@@ -109,6 +109,11 @@ end
 local leave -- clears the last level's HUD, map view, and camera; defined with the HUD below
 local showWhy -- the Show why button, made with the HUD below
 
+local function openLevel(id) -- a click on a level's button, or "Play in Roblox" on the web page
+	local reply = Coordinator:InvokeServer("open", id) -- the server Script removes the last level's maze
+	leave() -- after the reply, so a move reply sent before the server handled open is cleared too
+	showPanel(reply)
+end
 local function openList() -- fetched each time, so levels made during play appear
 	local found, err = Coordinator:InvokeServer("levels")
 	if not found then
@@ -129,16 +134,14 @@ local function openList() -- fetched each time, so levels made during play appea
 			Parent = list,
 		})
 		b.Activated:Connect(function()
-			local reply = Coordinator:InvokeServer("open", level.id) -- the server Script removes the last level's maze
-			leave() -- after the reply, so a move reply sent before the server handled open is cleared too
-			showPanel(reply)
+			openLevel(level.id)
 		end)
 	end
 	panel.Visible = false
 	list.Visible = true
 end
 levels.Activated:Connect(openList)
-play.Activated:Connect(function()
+local function pressPlay()
 	local reply = Coordinator:InvokeServer("play")
 	if not reply then -- the player opened another level while the session started
 		return
@@ -148,6 +151,16 @@ play.Activated:Connect(function()
 		showWhy.Visible = reply.showWhy == true -- a level with no reveal has no Show why
 	else
 		showPanel(reply)
+	end
+end
+play.Activated:Connect(pressPlay)
+-- "Play in Roblox" on the web page: the server Script sets RemoteOpen = "<id>#<n>", and the client
+-- opens that level and presses Play, exactly as the clicks do.
+Players.LocalPlayer:GetAttributeChangedSignal("RemoteOpen"):Connect(function()
+	local id = tostring(Players.LocalPlayer:GetAttribute("RemoteOpen") or ""):match("^([%w_%-]+)#")
+	if id then
+		openLevel(id)
+		pressPlay()
 	end
 end)
 
