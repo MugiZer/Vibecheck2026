@@ -1,6 +1,6 @@
 name = "rigged"
 version = "0.1.0"
-defaultTargets = ["Maze", "MazeRuntime", "maze", "Upload", "UploadSpec", "upload-gate"]
+defaultTargets = ["Maze", "MazeRuntime", "maze", "Sling", "sling", "Upload", "UploadSpec", "upload-gate", "Verification"]
 
 # Maze template: rules, specs, and the certificate checker. No `import Lean`.
 [[lean_lib]]
@@ -39,3 +39,20 @@ root = "UploadGate"
 [[lean_lib]]
 name = "Verification"
 roots = ["Verification.Challenge", "Verification.Solution", "Verification.SpecSurface"]
+
+# Slingshot template: rules and specs. No `import Lean`.
+[[lean_lib]]
+name = "Sling"
+srcDir = "templates/sling"
+
+# Untrusted slingshot runtime support: JSON.
+[[lean_lib]]
+name = "SlingRuntime"
+srcDir = "templates/sling"
+roots = ["SlingRuntime.Json"]
+
+# The slingshot game process.
+[[lean_exe]]
+name = "sling"
+srcDir = "templates/sling"
+root = "SlingMain"

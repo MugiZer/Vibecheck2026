@@ -18,6 +18,7 @@ AXIOMS = ["propext", "Quot.sound", "Classical.choice"]
 
 TEMPLATES = {
     "maze": {"lib": "Maze", "src": ROOT / "templates" / "maze", "exe": ROOT / ".lake/build/bin/maze"},
+    "sling": {"lib": "Sling", "src": ROOT / "templates" / "sling", "exe": ROOT / ".lake/build/bin/sling"},
 }
 
 ATTEMPT_LAKEFILE = """name = "attempt"

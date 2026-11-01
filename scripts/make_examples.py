@@ -11,7 +11,6 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "app"))
-import agent  # noqa: E402
 import templates  # noqa: E402
 import verify  # noqa: E402
 
@@ -19,7 +18,7 @@ EXAMPLES = verify.ROOT / "examples"
 
 LEVELS = [
     {
-        "sample": "unwinnable",
+        "template": "maze", "sample": "unwinnable",
         "map": ["###########",
                 "#S..#.....#",
                 "#.#.#.###.#",
@@ -36,7 +35,7 @@ LEVELS = [
                   "player": "🦝", "guard": "👮", "gem": "💎", "exit": "🚪", "wall": "#3d3a5c", "floor": "#1b1830"},
     },
     {
-        "sample": "winnable",
+        "template": "maze", "sample": "winnable",
         "map": ["#########",
                 "#S..#..G#",
                 "#.#.#.#.#",
@@ -51,7 +50,7 @@ LEVELS = [
                   "player": "🐭", "guard": "🦉", "gem": "🧀", "exit": "🕳️", "wall": "#2f4a2c", "floor": "#14210f"},
     },
     {
-        "sample": "unwinnable",
+        "template": "maze", "sample": "unwinnable",
         "map": ["#############",
                 "#S....#....G#",
                 "#.###.#.###.#",
@@ -67,48 +66,87 @@ LEVELS = [
                   "three ghosts who take silence very seriously.",
                   "player": "🧙", "guard": "👻", "gem": "📕", "exit": "🚪", "wall": "#4a3426", "floor": "#1f1610"},
     },
+    {
+        "template": "sling", "sample": "unwinnable",
+        "map": ["......................",
+                "......................",
+                "......................",
+                "......................",
+                "......................",
+                "......................",
+                "...............#.#....",
+                "...............#.#....",
+                "...............#T#....",
+                ".S.............###...."],
+        "angles": [20, 30, 40, 50, 60, 70, 80], "powers": [2, 3, 4, 5, 6],
+        "theme": {"title": "The Wishing Well", "story": "A Greeneling is hiding at the bottom of an open well. "
+                  "Just drop a stone in. Thirty-five tries say you can't.",
+                  "material": "stone", "ground": "grass", "projectile": "alienPink", "target": "alienGreen", "sky": "#8fd3ff"},
+    },
+    {
+        "template": "sling", "sample": "exactly-one",
+        "map": ["......................",
+                "......................",
+                "..........#...........",
+                "..........#...........",
+                "..........#...........",
+                "..........#...........",
+                "..........#...........",
+                "......................",
+                "..........#...........",
+                ".S........#......T...."],
+        "angles": [20, 30, 40, 50, 60, 70], "powers": [3, 4, 5, 6],
+        "theme": {"title": "The Keyhole", "story": "One window in the castle wall. Of the twenty-four shots "
+                  "your slingshot allows, exactly one goes through it.",
+                  "material": "wood", "ground": "sand", "projectile": "alienBlue", "target": "alienYellow", "sky": "#ffcf9e"},
+    },
 ]
 
-SOLUTION = """import Maze
+SOLUTION = """import {lib}
 import Candidate
 import UserSpec
 
 theorem accepted :
-    Maze.WellFormed Candidate.variant ∧ Maze.Playable Candidate.variant ∧
+    {lib}.WellFormed Candidate.variant ∧ {lib}.Playable Candidate.variant ∧
       UserSpec.requirement Candidate.variant :=
   ⟨by decide +kernel, {playable},
     {requirement}⟩
 """
 
 
+def proof_parts(name, sample, h):
+    if name == "sling":
+        return "by decide +kernel", "⟨by decide +kernel, by decide, by decide⟩"
+    if sample == "unwinnable":
+        return h["playable"], f"⟨{h['unwinnable']}, by decide⟩"
+    return h["playable"], f"⟨{h['winnable']}, by decide, by decide⟩"
+
+
 def main():
     check_only = "--check" in sys.argv
-    if not check_only:
-        shutil.rmtree(EXAMPLES, ignore_errors=True)
-        EXAMPLES.mkdir()
+    EXAMPLES.mkdir(exist_ok=True)
+    done = {(m["template"], m["templateHash"], templates.canonical(m["variant"])) for m in verify.published() if m["example"]}
     for i, lv in enumerate(LEVELS):
-        v = templates.maze_from_ascii(lv["map"], lv["guards"])
-        info = verify.runtime("maze", "solve", v)
-        print(f"{lv['theme']['title']}: verdict {info['verdict']}, cycle {info['cycle']}, problems {info['problems']}")
+        name = lv["template"]
+        adapter = templates.ADAPTERS[name]
+        v = adapter["variant"](lv)
+        info = verify.runtime(name, "solve", v)
+        print(f"{lv['theme']['title']}: verdict {info['verdict']}, problems {info['problems']}")
         if check_only:
             continue
-        h = info["leanHints"]
-        if lv["sample"] == "unwinnable":
-            req = f"⟨{h['unwinnable']}, by decide⟩"
-        else:
-            req = f"⟨{h['winnable']}, by decide, by decide⟩"
-        solution = SOLUTION.format(playable=h["playable"], requirement=req)
-        spec = (verify.ROOT / "samples" / "maze" / f"{lv['sample']}.lean").read_text()
-        ok, diag, files = verify.judge("maze", spec, v, solution, verify.BUILD / "examples" / str(i))
+        if (name, verify.template_hash(name), templates.canonical(v)) in done:
+            print("  already published for this template revision")
+            continue
+        playable, req = proof_parts(name, lv["sample"], info["leanHints"])
+        solution = SOLUTION.format(lib=verify.TEMPLATES[name]["lib"], playable=playable, requirement=req)
+        spec = (verify.ROOT / "samples" / name / f"{lv['sample']}.lean").read_text()
+        ok, diag, files = verify.judge(name, spec, v, solution, verify.BUILD / "examples" / str(i))
         if not ok:
             sys.exit(f"example {lv['theme']['title']} rejected:\n{diag}")
-        regions = info.get("regions")
-        meta = {"label": lv["sample"], "claim": agent.claim_for("maze", lv["sample"], spec),
-                "scope": agent.SCOPE["maze"], "brief": None, "generatedBy": None,
-                "reveal": {"cellsByTurn": templates.cells_by_turn(regions, v["width"] * v["height"]),
-                           "regionCells": info.get("regionCells"), "winningMoves": info.get("winningMoves"),
-                           "cycle": info.get("cycle"), "matchesProof": bool(regions) and str(regions) in solution}}
-        art = verify.publish("maze", v, agent.clean_theme(lv["theme"]), files, meta, base=EXAMPLES)
+        meta = {"label": lv["sample"], "claim": templates.claim(name, lv["sample"]),
+                "scope": adapter["scope"], "brief": None, "generatedBy": None,
+                "reveal": adapter["reveal"](info, v, solution)}
+        art = verify.publish(name, v, adapter["theme"](lv["theme"]), files, meta, base=EXAMPLES)
         print(f"  published examples/{art}")
 
 

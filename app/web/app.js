@@ -20,7 +20,7 @@ async function loadLevels(selectId) {
   for (const a of arts) {
     const li = document.createElement("li");
     const b = document.createElement("button");
-    const kind = a.label === "unwinnable" ? ["rigged", "rigged"] : a.label === "winnable" ? ["fair", "fair"] : ["custom", ""];
+    const kind = a.label === "unwinnable" ? ["rigged", "rigged"] : a.label === "winnable" ? ["fair", "fair"] : a.label === "exactly-one" ? ["one shot", "fair"] : ["custom", ""];
     b.innerHTML = `<span>${esc(a.title)}</span><span><span class="tag ${kind[1]}">${kind[0]}</span> <span class="tag">${a.template}${a.example ? " · example" : ""}</span></span>`;
     b.onclick = () => openLevel(a.id);
     b.dataset.id = a.id;
@@ -92,7 +92,7 @@ function buildProofTabs(art) {
 const DIRS = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right", w: "up", s: "down", a: "left", d: "right", " ": "stay" };
 
 async function act(action) {
-  if (!ui.session || ui.busy || !ui.art || ui.art.template !== "maze") return;
+  if (!ui.session || ui.busy || !ui.art || (ui.art.template !== "maze" && action !== "reset")) return;
   if (action !== "reset" && ui.state && ui.state.status !== "playing") return;
   stopReveal();
   ui.busy = true;
@@ -234,7 +234,7 @@ async function loadStatus() {
 
 function fillSamples() {
   const t = $("template").value;
-  const names = { unwinnable: "Rigged: impossible, but looks winnable", winnable: "Fair: can be won" };
+  const names = { unwinnable: "Rigged: impossible, but looks winnable", winnable: "Fair: can be won", "exactly-one": "Tight: exactly one shot wins" };
   $("sample").innerHTML = ui.samples.filter((s) => s.template === t)
     .map((s) => `<option value="${s.name}">${names[s.name] || s.name}</option>`).join("");
 }
