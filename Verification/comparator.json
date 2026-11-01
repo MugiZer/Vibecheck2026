@@ -1,0 +1,14 @@
+{
+  "challenge_module": "Verification.Challenge",
+  "solution_module": "Verification.Solution",
+  "theorem_names": [
+    "maze_regions_sound",
+    "maze_isOpen_iff",
+    "upload_ignores_client_name",
+    "upload_fixed_shape",
+    "upload_never_over_limit",
+    "upload_accepted_iff_within_limit",
+    "upload_accepted_writes_everything"
+  ],
+  "permitted_axioms": ["propext", "Quot.sound", "Classical.choice"]
+}

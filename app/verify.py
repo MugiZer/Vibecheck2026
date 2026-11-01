@@ -245,3 +245,13 @@ def publish(name, variant, presentation, files, meta, base=ARTIFACTS):
     (tmp / "manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False))
     tmp.rename(dest)
     return art_id
+
+
+def published():
+    """Every published level: shipped examples first, then generated ones."""
+    out = []
+    for base, example in ((ROOT / "examples", True), (ARTIFACTS, False)):
+        for m in sorted(base.glob("*/manifest.json")) if base.exists() else []:
+            man = json.loads(m.read_text())
+            out.append({**man, "dir": str(m.parent), "example": example})
+    return out

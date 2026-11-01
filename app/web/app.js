@@ -157,7 +157,7 @@ function drawMaze(revealTurn) {
     ctx.fillText(ch, x + size / 2, y + size / 2 + size * .04);
     ctx.globalAlpha = 1;
   };
-  glyph(v.exit, p.exit);
+  glyph(v.exit, p.exit, .66, 1, "rgba(94,230,160,.35)");
   if (revealTurn !== undefined) {
     const [x, y] = xy(v.exit);
     ctx.strokeStyle = "#ff6b7f"; ctx.lineWidth = 3; ctx.strokeRect(x + 3, y + 3, size - 6, size - 6);

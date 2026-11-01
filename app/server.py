@@ -53,17 +53,11 @@ def runtime(template, op, variant, **extra):
 
 
 def artifacts():
-    """Published levels: shipped examples plus levels generated here."""
+    """Published levels by id, marked stale if their template has changed."""
     found = {}
-    for base, example in ((EXAMPLES, True), (verify.ARTIFACTS, False)):
-        if not base.exists():
-            continue
-        for m in sorted(base.glob("*/manifest.json")):
-            man = json.loads(m.read_text())
-            man["dir"] = str(m.parent)
-            man["example"] = example
-            man["current"] = man["templateHash"] == verify.template_hash(man["template"])
-            found[man["id"]] = man
+    for man in verify.published():
+        man["current"] = man["templateHash"] == verify.template_hash(man["template"])
+        found[man["id"]] = man
     return found
 
 

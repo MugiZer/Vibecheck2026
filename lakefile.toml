@@ -34,3 +34,8 @@ roots = ["UploadSpec.Destination", "UploadSpec.Limit", "UploadSpec.Proofs"]
 name = "upload-gate"
 srcDir = "app/upload"
 root = "UploadGate"
+
+# The repository's main theorems for `lake comparator` (see Verification/).
+[[lean_lib]]
+name = "Verification"
+roots = ["Verification.Challenge", "Verification.Solution", "Verification.SpecSurface"]
