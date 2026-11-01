@@ -1,0 +1,15 @@
+Resolving dependencies
+Building Challenge
+✔ [6/9] Built UserSpec (961ms)
+✔ [7/9] Built Candidate (1.1s)
+⚠ [8/9] Built Challenge (913ms)
+warning: Challenge.lean:7:8: declaration uses `sorry`
+Build completed successfully (9 jobs).
+Exporting #[Quot, Quot.mk, Quot.lift, Quot.ind, accepted, propext, Quot.sound, Classical.choice, Nat.add, Nat.sub, Nat.mul, Nat.pow, Nat.gcd, Nat.div, Nat.mod, Nat.beq, Nat.ble, Nat.land, Nat.lor, Nat.xor, Nat.shiftLeft, Nat.shiftRight, String.ofList, Char.ofNat, List, eagerReduce, Nat, String, String.mk, Char, optParam, autoParam, semiOutParam, outParam] from Challenge
+Building Solution
+✔ [8/9] Built Solution (3.3s)
+Build completed successfully (9 jobs).
+Exporting #[Quot, Quot.mk, Quot.lift, Quot.ind, accepted, propext, Quot.sound, Classical.choice, Nat.add, Nat.sub, Nat.mul, Nat.pow, Nat.gcd, Nat.div, Nat.mod, Nat.beq, Nat.ble, Nat.land, Nat.lor, Nat.xor, Nat.shiftLeft, Nat.shiftRight, String.ofList, Char.ofNat, List, eagerReduce, Nat, String, String.mk, Char, optParam, autoParam, semiOutParam, outParam] from Solution
+Running Lean default kernel on solution
+Lean default kernel accepts the solution
+Your solution is okay!

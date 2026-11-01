@@ -1,6 +1,6 @@
 name = "rigged"
 version = "0.1.0"
-defaultTargets = ["Maze", "MazeRuntime", "maze"]
+defaultTargets = ["Maze", "MazeRuntime", "maze", "Upload", "UploadSpec", "upload-gate"]
 
 # Maze template: rules, specs, and the certificate checker. No `import Lean`.
 [[lean_lib]]
@@ -17,3 +17,20 @@ srcDir = "templates/maze"
 name = "maze"
 srcDir = "templates/maze"
 root = "MazeMain"
+
+# Upload storage decisions, used by the upload gate.
+[[lean_lib]]
+name = "Upload"
+srcDir = "app/upload"
+roots = ["Upload.Store"]
+
+# Readable upload-security specs and their proofs.
+[[lean_lib]]
+name = "UploadSpec"
+srcDir = "Specs"
+roots = ["UploadSpec.Destination", "UploadSpec.Limit", "UploadSpec.Proofs"]
+
+[[lean_exe]]
+name = "upload-gate"
+srcDir = "app/upload"
+root = "UploadGate"

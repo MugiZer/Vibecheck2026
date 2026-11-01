@@ -1,0 +1,17 @@
+name = "attempt"
+defaultTargets = ["Maze"]
+
+[[lean_lib]]
+name = "Maze"
+
+[[lean_lib]]
+name = "UserSpec"
+
+[[lean_lib]]
+name = "Candidate"
+
+[[lean_lib]]
+name = "Challenge"
+
+[[lean_lib]]
+name = "Solution"

@@ -2,7 +2,14 @@
 data the Lean runtime and the judge read. Untrusted convenience code: the Lean
 side validates everything again."""
 
+import json
+
 MAZE_LEGEND = {"#": "wall", ".": "floor", "S": "start", "E": "exit", "G": "gem"}
+
+
+def canonical(variant):
+    """Normalized game data without presentation: a new title is not a new level."""
+    return json.dumps(variant, sort_keys=True, separators=(",", ":"))
 
 
 def maze_from_ascii(rows, guards):
@@ -36,3 +43,11 @@ def maze_from_ascii(rows, guards):
     return {"width": w, "height": h, "walls": cells["#"], "start": cells["S"][0],
             "exit": cells["E"][0], "gems": cells["G"], "guards": routes}
 
+
+
+def cells_by_turn(regions, cells):
+    """Per-turn cell lists from the bit sets of a region certificate (for the
+    browser, which cannot hold numbers this large exactly)."""
+    if not regions:
+        return None
+    return [[c for c in range(cells) if r >> c & 1] for r in regions]

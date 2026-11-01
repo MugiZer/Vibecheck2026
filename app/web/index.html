@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rigged Arcade</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <h1>Rigged Arcade</h1>
+      <p>Every level ships with a proof. Some are fair. Some are rigged. Lean knows which.</p>
+    </div>
+    <div class="pills" id="pills" aria-live="polite"></div>
+  </header>
+
+  <main class="layout">
+    <section class="stage" aria-label="Game">
+      <div class="level-head">
+        <h2 id="level-title">Pick a level</h2>
+        <p id="level-story" class="story"></p>
+      </div>
+      <div class="board-wrap">
+        <canvas id="board" width="720" height="560" tabindex="0" aria-label="Game board. Use the arrow keys to move and space to wait."></canvas>
+        <div id="overlay" class="overlay" hidden></div>
+      </div>
+      <div class="controls" id="controls">
+        <div class="pad" role="group" aria-label="Moves">
+          <button data-move="up" aria-label="Up">▲</button>
+          <button data-move="left" aria-label="Left">◀</button>
+          <button data-move="stay" aria-label="Wait one turn">wait</button>
+          <button data-move="right" aria-label="Right">▶</button>
+          <button data-move="down" aria-label="Down">▼</button>
+        </div>
+        <div class="readout">
+          <span id="moves">0 moves</span>
+          <span id="status-text">Arrow keys move. Space waits.</span>
+          <button id="restart" class="ghost">Restart</button>
+        </div>
+      </div>
+      <div class="sling-controls" id="sling-controls" hidden>
+        <label>Angle <input type="range" id="angle" min="0" max="0" value="0"> <output id="angle-out"></output></label>
+        <label>Power <input type="range" id="power" min="0" max="0" value="0"> <output id="power-out"></output></label>
+        <button id="fire">Launch</button>
+        <span id="sling-status" class="muted"></span>
+      </div>
+
+      <article class="claim" id="claim" hidden>
+        <div class="claim-head">
+          <span class="badge" id="claim-badge">Proved by Lean</span>
+          <span class="who" id="claim-who"></span>
+        </div>
+        <p class="claim-text" id="claim-text"></p>
+        <p class="scope" id="claim-scope"></p>
+        <div class="claim-actions">
+          <button id="reveal">Show why</button>
+          <button id="show-proof" class="ghost">See the proof</button>
+        </div>
+        <p class="reveal-note" id="reveal-note" hidden></p>
+        <div class="proof" id="proof" hidden>
+          <div class="tabs" role="tablist" id="proof-tabs"></div>
+          <pre id="proof-body"></pre>
+        </div>
+      </article>
+    </section>
+
+    <aside class="side">
+      <section class="panel">
+        <h2>Levels</h2>
+        <ul class="levels" id="levels"></ul>
+      </section>
+
+      <section class="panel">
+        <h2>Make a level</h2>
+        <form id="make">
+          <label class="field">Game
+            <select id="template"></select>
+          </label>
+          <fieldset class="field">
+            <legend>Requirement (Lean)</legend>
+            <select id="sample"></select>
+            <label class="upload">or upload your own <code>UserSpec.lean</code>
+              <input type="file" id="upload" accept=".lean">
+            </label>
+            <span id="upload-status" class="muted"></span>
+          </fieldset>
+          <label class="field">Brief
+            <textarea id="brief" rows="3" placeholder="A raccoon heist in a museum vault. Looks easy. Isn't."></textarea>
+          </label>
+          <button type="submit" id="generate">Generate with Claude</button>
+          <p class="muted" id="gen-note"></p>
+        </form>
+        <ol class="timeline" id="timeline" aria-live="polite"></ol>
+      </section>
+    </aside>
+  </main>
+  <script src="/static/app.js"></script>
+</body>
+</html>

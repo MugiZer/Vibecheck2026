@@ -215,17 +215,17 @@ def trim_build_log(out):
     return "\n".join(lines)[-6000:]
 
 
-def publish(name, variant, presentation, files, meta):
+def publish(name, variant, presentation, files, meta, base=ARTIFACTS):
     """Write an immutable, self-contained artifact: the level, the theorem,
     the proof, the judge's log, and their hashes. Returns its id."""
     request_hash = sha(files["UserSpec.lean"])
     variant_hash = sha(json.dumps(variant, sort_keys=True))
     t_hash = template_hash(name)
     art_id = sha(t_hash + request_hash + variant_hash + sha(files["Solution.lean"]))[:12]
-    dest = ARTIFACTS / art_id
+    dest = base / art_id
     if dest.exists():
         return art_id
-    tmp = ARTIFACTS / (art_id + ".tmp")
+    tmp = base / (art_id + ".tmp")
     shutil.rmtree(tmp, ignore_errors=True)
     tmp.mkdir(parents=True)
     lib = TEMPLATES[name]["lib"]
