@@ -257,6 +257,11 @@ the surface to review: `templates/maze/Maze/Game.lean` and `Spec.lean`,
   watcher stands; the runtime decides those.
 - **Search and the agent are not trusted.** They only propose; the kernel and
   `lake comparator` decide.
+- **Watcher looks named in a spec.** A spec may list looks in Lean
+  (`UserSpec.watcherLooks`) and require one watcher per look. Lean proves the
+  counting (how many watchers, which names repeat). Not proved: that a Roblox
+  model looks like its name. The models were fetched and gate-checked by an agent
+  through the Studio MCP and cached in the open place.
 - **Codex and the OpenAI model are not trusted either**, the same as Claude.
 
 Not claimed: that a level is fun, looks fair, or that a human cannot react fast

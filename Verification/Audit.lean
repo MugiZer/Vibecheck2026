@@ -32,3 +32,14 @@ project definitions its statement depends on (the trusted surface to review). -/
 #spec_surface decor_only_allowed_classes
 #spec_surface decor_parts_stay_in_box
 #spec_surface decor_id_is_digits_only
+#spec_surface maze_isOpen_iff
+#spec_surface upload_ignores_client_name
+#spec_surface upload_accepted_writes_everything
+#spec_surface decor_no_bad_classes
+#spec_surface decor_top_is_model
+#spec_surface decor_parts_are_inert
+#spec_surface decor_humanoids_show_nothing
+#spec_surface decor_within_limits
+#spec_surface decor_ignores_names
+#spec_surface decor_accepts_safe_decor
+#spec_surface decor_smaller_stays_accepted
