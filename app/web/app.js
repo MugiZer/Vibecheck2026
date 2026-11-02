@@ -282,7 +282,7 @@ $("make").onsubmit = async (e) => {
   const req = { template: "maze", brief: $("brief").value };
   // A "-- watcher: <name>" line in the spec picks the watchers' look. Lean ignores comments, so it
   // is not part of what is proved; it only joins the brief, which the dress step reads.
-  for (const key of ["watcher", "decor"]) {  // "-- watcher: ..." and "-- decor: ..." lines in the spec
+  for (const key of ["watcher", "decor", "floor"]) {  // "-- watcher:", "-- decor:" and "-- floor:" lines in the spec
     const line = new RegExp(`^--\\s*${key}:\\s*(.+)$`, "im").exec(specText());
     if (line && !new RegExp(`${key}:`, "i").test(req.brief)) req.brief = `${req.brief.trim()}${req.brief.trim() ? "; " : ""}${key}: ${line[1].trim()}`;
   }
