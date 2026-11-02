@@ -19,6 +19,7 @@
           <h2>Spec</h2>
           <select id="spec-pick" aria-label="Which spec"></select>
           <label class="file">Upload .lean<input type="file" id="upload" accept=".lean"></label>
+          <button type="button" class="file" id="safety-open" aria-haspopup="dialog">Upload safety</button>
         </div>
         <p class="note pane-note">The spec the next Generate sends to the model.</p>
         <pre class="src" id="spec-body" tabindex="0"></pre>
@@ -71,6 +72,13 @@
       </div>
     </section>
   </main>
+  <dialog id="safety" class="safety" aria-label="Upload safety: the Lean code, specs, and proofs">
+    <div class="safety-head">
+      <p>What Lean proves about every upload, about the code the server runs.</p>
+      <form method="dialog"><button class="quiet" autofocus>Close</button></form>
+    </div>
+    <iframe src="/static/security.html" title="Upload safety theorems, specs, code, and proofs" loading="lazy"></iframe>
+  </dialog>
   <script src="/static/app.js"></script>
 </body>
 </html>

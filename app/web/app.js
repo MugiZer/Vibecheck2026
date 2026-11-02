@@ -52,6 +52,8 @@ function specText() {
 }
 function showSpec() { showCode($("spec-body"), specText()); }
 $("spec-pick").onchange = showSpec;
+$("safety-open").onclick = () => $("safety").showModal();
+$("safety").onclick = (e) => { if (e.target === $("safety")) $("safety").close(); };  // click outside closes
 
 $("upload").onchange = async () => {
   const f = $("upload").files[0];

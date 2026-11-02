@@ -45,6 +45,15 @@ select, input[type=text] {
 .file { font-size: .86rem; border: 1px solid var(--line); border-radius: 6px; padding: .4rem .7rem; cursor: pointer; background: var(--sheet); }
 .file:hover { border-color: var(--soft); }
 .file input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+button.file { color: var(--ink); font-weight: 500; min-height: 0; }
+button.file:hover { background: var(--sheet); }
+.safety { width: min(1000px, 94vw); height: 88vh; padding: 0; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--paper); }
+.safety[open] { display: flex; flex-direction: column; }
+.safety::backdrop { background: rgba(31, 35, 38, .45); }
+.safety-head { display: flex; align-items: center; padding: .5rem .8rem; border-bottom: 1px solid var(--line); }
+.safety-head p { margin: 0; color: var(--soft); font-size: .86rem; }
+.safety iframe { flex: 1; width: 100%; border: 0; }
 .file:focus-within { outline: 2px solid var(--ink); outline-offset: 2px; }
 
 .src {
