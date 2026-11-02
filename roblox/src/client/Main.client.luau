@@ -179,7 +179,7 @@ new("UIListLayout", { Name = "Layout", SortOrder = Enum.SortOrder.LayoutOrder, P
 local moves = text("Moves", 1, hud)
 local status = text("Status", 2, hud)
 local message = text("Message", 3, hud)
-text("Hint", 4, hud).Text = "W step · A/D turn · S turn around · Space wait · R restart · M map"
+text("Hint", 4, hud).Text = "W step · A/D turn · S turn around · Space wait · R restart · M map · H hide"
 local waitButton = new("TextButton", { Name = "Wait", Text = "Wait", LayoutOrder = 5, Size = UDim2.fromOffset(96, 26), Parent = hud })
 local restartButton =
 	new("TextButton", { Name = "Restart", Text = "Restart", LayoutOrder = 6, Size = UDim2.fromOffset(96, 26), Parent = hud })
@@ -331,6 +331,13 @@ ContextActionService:BindActionAtPriority("Maze", function(_, inputState, input)
 	return Enum.ContextActionResult.Sink
 end, false, Enum.ContextActionPriority.High.Value, Enum.KeyCode.W, Enum.KeyCode.Up, Enum.KeyCode.A, Enum.KeyCode.Left,
 	Enum.KeyCode.S, Enum.KeyCode.Down, Enum.KeyCode.D, Enum.KeyCode.Right, Enum.KeyCode.Space, Enum.KeyCode.R, Enum.KeyCode.M)
+-- H hides or shows every panel, so the maze can fill the screen. It changes no game state.
+ContextActionService:BindAction("HideUi", function(_, inputState)
+	if inputState == Enum.UserInputState.Begin then
+		gui.Enabled = not gui.Enabled
+	end
+	return Enum.ContextActionResult.Sink
+end, false, Enum.KeyCode.H)
 waitButton.Activated:Connect(function()
 	press(Enum.KeyCode.Space)
 end)
