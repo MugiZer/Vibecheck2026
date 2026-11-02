@@ -60,7 +60,7 @@ local function text(name, order, parent) -- a block of wrapped text
 		AutomaticSize = Enum.AutomaticSize.Y,
 		TextWrapped = true,
 		TextXAlignment = Enum.TextXAlignment.Left,
-		TextSize = 18,
+		TextSize = 14,
 		Text = "", -- not the default "Label"
 		Parent = parent,
 	})
@@ -76,7 +76,7 @@ local levels = new("TextButton", {
 local list = new("ScrollingFrame", {
 	Name = "List",
 	Visible = false,
-	Size = UDim2.fromOffset(520, 420),
+	Size = UDim2.fromOffset(340, 260),
 	Position = UDim2.fromOffset(8, 48),
 	CanvasSize = UDim2.new(),
 	AutomaticCanvasSize = Enum.AutomaticSize.Y,
@@ -86,14 +86,14 @@ new("UIListLayout", { Name = "Layout", SortOrder = Enum.SortOrder.LayoutOrder, P
 local panel = new("Frame", {
 	Name = "Panel",
 	Visible = false,
-	Size = UDim2.fromOffset(520, 0),
+	Size = UDim2.fromOffset(340, 0),
 	AutomaticSize = Enum.AutomaticSize.Y,
 	Position = UDim2.fromOffset(8, 48),
 	Parent = gui,
 })
 new("UIListLayout", { Name = "Layout", SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 8), Parent = panel })
 local body = text("Body", 4, panel) -- below Play and the note, which stay on screen when the text is long
-local play = new("TextButton", { Name = "Play", Text = "Play", LayoutOrder = 2, Size = UDim2.fromOffset(120, 36), Parent = panel })
+local play = new("TextButton", { Name = "Play", Text = "Play", LayoutOrder = 2, Size = UDim2.fromOffset(96, 28), Parent = panel })
 local note = text("Note", 3, panel)
 
 -- A reply from the server Script: the panel text (kept if the reply has none), a note,
@@ -129,8 +129,8 @@ local function openList() -- fetched each time, so levels made during play appea
 			Name = "Level_" .. (level.id:gsub("%W", "_")),
 			Text = level.text,
 			LayoutOrder = i,
-			Size = UDim2.new(1, -12, 0, 36),
-			TextSize = 18,
+			Size = UDim2.new(1, -12, 0, 28),
+			TextSize = 14,
 			Parent = list,
 		})
 		b.Activated:Connect(function()
@@ -169,7 +169,7 @@ end)
 local hud = new("Frame", {
 	Name = "Hud",
 	Visible = false,
-	Size = UDim2.fromOffset(520, 0),
+	Size = UDim2.fromOffset(300, 0),
 	AutomaticSize = Enum.AutomaticSize.Y,
 	AnchorPoint = Vector2.new(0, 1),
 	Position = UDim2.new(0, 8, 1, -8),
@@ -180,12 +180,12 @@ local moves = text("Moves", 1, hud)
 local status = text("Status", 2, hud)
 local message = text("Message", 3, hud)
 text("Hint", 4, hud).Text = "W step · A/D turn · S turn around · Space wait · R restart · M map"
-local waitButton = new("TextButton", { Name = "Wait", Text = "Wait", LayoutOrder = 5, Size = UDim2.fromOffset(120, 36), Parent = hud })
+local waitButton = new("TextButton", { Name = "Wait", Text = "Wait", LayoutOrder = 5, Size = UDim2.fromOffset(96, 26), Parent = hud })
 local restartButton =
-	new("TextButton", { Name = "Restart", Text = "Restart", LayoutOrder = 6, Size = UDim2.fromOffset(120, 36), Parent = hud })
+	new("TextButton", { Name = "Restart", Text = "Restart", LayoutOrder = 6, Size = UDim2.fromOffset(96, 26), Parent = hud })
 showWhy = new(
 	"TextButton",
-	{ Name = "ShowWhy", Text = "Show why", LayoutOrder = 7, Size = UDim2.fromOffset(120, 36), Visible = false, Parent = hud }
+	{ Name = "ShowWhy", Text = "Show why", LayoutOrder = 7, Size = UDim2.fromOffset(96, 26), Visible = false, Parent = hud }
 )
 local caption = text("Caption", -2, hud) -- the coordinator's caption while Show why runs
 local turn = text("Turn", -1, hud)
