@@ -12,6 +12,12 @@ Lost again? Press **Show why**. The lights die, and the tiles that pass
 Lean's region check glow, turn by turn. Until a watcher catches you, you are
 always on a glowing tile, and the exit never glows.
 
+> **Want to try it? Come find me.** The full experience runs live on my
+> machine: Roblox Studio open, agents standing by, Lean ready to judge. Bring a
+> nightmare (who should hunt you, what covers the floor) and I will show you the
+> whole loop, from your idea to a proved room you can try to escape in Roblox,
+> in a few minutes.
+
 ## Build your own nightmare
 
 Write the rules of a room in Lean, and pick who hunts you:
@@ -39,12 +45,46 @@ and Jon on patrol and burgers on every tile. Every character and prop comes
 from the Roblox Creator Store, and each one passes a Lean-proved safety gate
 before it enters the room.
 
+**The loop, live:**
+
+1. You write a nightmare: the rules in Lean, the cast in three comment lines.
+2. An AI model builds a room that fits.
+3. Lean proves your rules for that exact room, or the room is never published.
+4. Agents fetch your cast from the Creator Store, strip every script, and run
+   the proved safety gate.
+5. You press **Play in Roblox** and try to escape.
+6. You lose. You press **Show why**.
+
 ## Built by agents, inside Roblox Studio
 
 Our agents drive Roblox Studio directly through its MCP server. They find the
 characters on the Creator Store, strip out every script, run the safety gate,
 and dress the room while you watch. They also play-tested the game in
 Studio as it was built.
+
+## Uploads you can trust, proved in Lean
+
+You upload your own Lean file, so the upload path is a door from the internet
+into the machine. We locked it with proofs. Every upload goes through the
+**upload gate**, a small Lean program the server runs on each request, and these
+five properties of that gate are proved and judged by `lake comparator`:
+
+- **The file name you send is ignored.** It never changes where your upload is
+  stored (`upload_ignores_client_name`).
+- **Uploads cannot escape their folder.** Every stored path is
+  `uploads/<32 random hex digits>/UserSpec.lean` (`upload_fixed_shape`).
+- **The size limit holds, whatever the chunking.** The gate never lets through
+  more bytes than the limit (`upload_never_over_limit`).
+- **The limit is exact.** An upload is accepted exactly when it fits: 64 KiB
+  is accepted, one byte more is rejected (`upload_accepted_iff_within_limit`).
+- **Accepted means complete.** An accepted upload is passed through in full,
+  every chunk, in order (`upload_accepted_writes_everything`).
+
+`make check` tests the same gate through the real HTTP endpoint: a `../`
+file name lands in its random folder, the exact limit is accepted, one byte
+over is rejected, and a rejected upload leaves nothing behind. Your Lean is
+then compiled inside a bubblewrap sandbox with no network, and a room is
+published only when `lake comparator` accepts its proof.
 
 ## Run it
 
