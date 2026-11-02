@@ -389,31 +389,40 @@ function Scene.build(detail, state)
 		table.insert(drawn.gems, gem)
 	end
 
-	-- One watcher and one mark per guard; Scene.update stands them on the state's cells. The look is
-	-- the level's decor watcher if it passes the check, else the cached look that the brief names
-	-- ("watcher: <name>", lowercased, up to ; or . or the end; only ever a folder name), else the
-	-- art watcher, else the plain stack.
+	-- One watcher and one mark per guard; Scene.update stands them on the state's cells. Each watcher's
+	-- look is the level's decor watcher if it passes the check, else the cached look the brief names
+	-- for it, else the art watcher, else the plain stack. The brief's "watcher:" text (lowercased, up
+	-- to ; or . or the end) is a comma-separated list of names in watcher order; with more watchers
+	-- than names the list starts over. The names are only ever folder names.
 	local lookModel = goodModels(levelDecor, "watcher")[1]
-	local key = string.match(string.lower(tostring(detail.brief or "")), "watcher:%s*([^;%.\n]*)")
-	key = key and string.match(key, "^(.-)%s*$")
-	local looks = dress and dress:FindFirstChild("Looks")
-	local cached = key and key ~= "" and looks and looks:FindFirstChild(key)
-	local look = "plain" -- which look the watchers got, for the log
-	for _ in state.guards do
-		local watcher = lookModel and checkedClone(lookModel)
-		if watcher then
-			look = "decor"
-		else
-			watcher = cached and checkedClone(cached)
-			if watcher then
-				look = "looks:" .. key
-			else
-				watcher = artClone("Watcher")
-				if watcher then
-					look = "art"
-				end
-			end
+	local names = {}
+	local named = string.match(string.lower(tostring(detail.brief or "")), "watcher:%s*([^;%.\n]*)") or ""
+	for item in string.gmatch(named, "[^,]+") do
+		local name = string.match(item, "^%s*(.-)%s*$")
+		if name ~= "" then
+			table.insert(names, name)
 		end
+	end
+	local looks = dress and dress:FindFirstChild("Looks")
+	local used = {} -- which look each watcher got, for the log
+	for i in state.guards do
+		local j = i
+		while #names > 0 and j > #names do
+			j -= #names
+		end
+		local name = names[j]
+		local cached = name and looks and looks:FindFirstChild(name)
+		local watcher, look = lookModel and checkedClone(lookModel), "decor"
+		if not watcher then
+			watcher, look = cached and checkedClone(cached), "looks:" .. tostring(name)
+		end
+		if not watcher then
+			watcher, look = artClone("Watcher"), "art"
+		end
+		if not watcher then
+			look = "plain"
+		end
+		table.insert(used, look)
 		watcher = watcher or plainWatcher()
 		inert(watcher)
 		watcher.Parent = maze
@@ -423,6 +432,7 @@ function Scene.build(detail, state)
 	Scene.update(state)
 
 	local props = placeProps(decorFolder, detail, levelDecor, isWall)
+	local look = table.concat(used, ",") -- each watcher's look, in order
 	print(("[decor] placed %d props, watcher look %s"):format(props, look))
 
 	if not ambience then
