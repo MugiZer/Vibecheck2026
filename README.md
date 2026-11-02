@@ -1,28 +1,108 @@
 # blox
 
-to see it live ask me and I will show you a demo because you need roblox studio
+blox is about making games with rules you can prove. You bring an idea for a
+world and decide what has to be true inside it. An agent works on the level
+and its proof, and Lean checks that the result follows the rules you asked for.
 
-**You are lost in the Backrooms. Find the exit before the watchers find you.**
+In a horror game, you can make "no way out" something you actually prove.
+Give the player a safe start, space to move, and an exit they can see, then
+prove that no sequence of moves will ever get them there. Or make a room
+they can escape, with a route to back it up.
 
-Endless yellow halls. Humming lights. Damp carpet. Somewhere there is a way
-out, and something is walking the halls between you and it.
+> **Come find me and I'll show you live.** Right now, I'm the only person who
+> can run the complete walkthrough, because the tools and Studio assets are
+> configured on my machine. You can inspect the code and play the browser
+> examples from this repo, but you won't see the whole experience that way.
+> Bring an idea for a room, or someone ridiculous you want chasing you.
 
-Some rooms can be escaped. Some are rigged: whatever you do, you never get
-out. Every room comes with a Lean proof that says which one you are in.
+## What we're making right now
 
-Lost again? Press **Show why**. The lights die, and the tiles that pass
-Lean's region check glow, turn by turn. Until a watcher catches you, you are
-always on a glowing tile, and the exit never glows.
+We start from one Backrooms-style maze template and make variations of it.
+The movement rules and proof tools stay fixed. The agent changes the layout,
+the exit, the watchers' patrol routes, and the look of the room to fit a new
+requirement and creative brief.
 
-> **Want to try it? Come find me.** The full experience runs live on my
-> machine: Roblox Studio open, agents standing by, Lean ready to judge. Bring a
-> nightmare (who should hunt you, what covers the floor) and I will show you the
-> whole loop, from your idea to a proved room you can try to escape in Roblox,
-> in a few minutes.
+You walk through yellow office corridors in Roblox, under humming lights,
+with watchers somewhere between you and the exit. Everything advances one
+turn at a time, even in the first-person view. Some rooms are escapable;
+others are deliberately impossible under those same rules.
 
-## Build your own nightmare
+A brief can be as odd as:
 
-Write the rules of a room in Lean, and pick who hunts you:
+> Give me three watchers: Subaru Natsuki, Bernie Sanders and Jon Snow.
+> Put burgers on the floor. Make escape impossible, but give me a safe
+> start and at least one way to survive six moves.
+
+The watcher names and burgers guide the art. The Lean requirement handles
+the watcher count, safe start, six survivable moves, and impossible escape.
+Keeping the game template fixed gives us room to try these combinations
+while checking each new layout against its own requirements.
+
+## See why you couldn't escape
+
+Press **Show why** in an impossible room. The lights go out, the camera rises,
+and the checked regions of the maze glow, one watcher turn at a time. As long
+as you're still playing, you can only be on a glowing tile for that turn.
+The exit never glows.
+
+Those regions come from the level's certificate, which the runtime checks
+when the room opens. In an escapable room, Show why replays a winning route.
+You can try the room yourself, then see the explanation in the space you've
+just been walking through.
+
+## How a room gets made
+
+1. You provide a creative brief and a Lean file defining
+   `UserSpec.requirement : Maze.Variant → Prop`. The brief describes the room;
+   the Lean file says exactly what must hold.
+2. The agent proposes a variation of the maze template. It tries the level
+   against the Lean runtime, gets feedback, and writes a proof for that
+   particular level.
+3. The judge builds the submission in a Linux sandbox and runs
+   `lake comparator` against a challenge written by the coordinator. The
+   proof must establish that the maze is well formed, meets the template's
+   playability conditions, and satisfies your requirement.
+4. Only an accepted level enters the local collection. It includes the
+   requirement, level, proof, judge log, and hashes. You can open it in the
+   browser or the connected Roblox Studio place.
+
+The same Lean rules used in the proof drive play. The browser and Roblox
+send moves to the coordinator and draw the state returned by the Lean
+runtime. Before a session starts, the coordinator checks that the loaded
+level matches the judged candidate and uses the current template.
+
+Agents also use Roblox Studio's MCP connection to prepare the scene. In
+Studio's Edit mode, they can find Creator Store models, strip scripts, and
+check the reported model trees with the Lean decor gate before adding them.
+The artwork gives each room its character; movement and escape still follow
+the checked maze rules.
+
+Generation runs one job at a time, with time and cost limits. A request can
+run out of budget or fail to produce an accepted level. A failed search does
+not prove that the request is impossible.
+
+## What Lean checks
+
+The proofs cover the game rules and specific decisions in the upload and
+asset gates. The statements and their definitions are available in the repo.
+
+| Part | What is checked | Where to read it |
+| --- | --- | --- |
+| Each accepted room | The level is well formed, has a route to the exit with watchers removed, offers a safe first step to another cell, and satisfies the uploaded requirement. An unwinnable requirement rules out every winning move list, of any length. A winnable requirement supplies a winning route. | [Maze specs](templates/maze/Maze/Spec.lean), [sample requirements](samples/maze/), [shipped proofs](examples/) |
+| Gameplay and Show why | Recognized move names replay through `Maze.run`. The region checker is sound: if a certificate passes, escape is impossible, and a player still in the game stays inside the checked region for the current turn. | [Replay](templates/maze/MazeRuntime/Replay.lean), [certificate checker](templates/maze/Maze/Cert.lean) |
+| Upload decisions | Client filenames do not affect the destination. Paths have the fixed shape `uploads/<32 lowercase hex digits>/UserSpec.lean`. The byte limit is exact for any chunking, and accepted uploads pass every chunk through in order. The app uses a 64 KiB limit. | [Upload specs and proofs](Specs/UploadSpec/), [upload implementation](app/upload/) |
+| Decor decisions | An accepted model tree uses allowed classes, stays within size and depth limits, and has inert parts inside the slot box. The gate also checks asset IDs. | [Decor specs and proofs](Specs/DecorSpec/), [decor implementation](app/decor/) |
+
+The repository's theorem list is in
+[Verification/Challenge.lean](Verification/Challenge.lean). `make verify`
+prints the axioms and definitions behind the main statements, then runs
+Comparator. The judge rejects `sorry`, `native_decide`, and added axioms.
+
+<details>
+<summary>The Lean requirement for the three-watcher room</summary>
+
+The comment lines guide the visual brief. The proposition below them is what
+the generated room must prove.
 
 ```lean
 import Maze.Spec
@@ -31,8 +111,6 @@ import Maze.Spec
 -- floor: burger every tile
 -- decor: office chair, filing cabinet, water cooler
 
-/-! No way out. Three watchers, and a safe start: none of them starts
-next to you, and you can survive at least 6 moves. -/
 def UserSpec.requirement (v : Maze.Variant) : Prop :=
   Maze.Unwinnable v ∧
   v.guards.length = 3 ∧
@@ -41,370 +119,154 @@ def UserSpec.requirement (v : Maze.Variant) : Prop :=
   ∃ moves : List Maze.Move, moves.length = 6 ∧ (Maze.run v moves).status = .playing
 ```
 
-An AI model builds the room. Lean proves your rules hold for that exact room.
-Then press **Play in Roblox** and walk it in first person, with Subaru, Bernie
-and Jon on patrol and burgers on every tile. Every character and prop comes
-from the Roblox Creator Store, and each one passes a Lean-proved safety gate
-before it enters the room.
+</details>
 
-**The loop, live:**
+### What is trusted
 
-1. You write a nightmare: the rules in Lean, the cast in three comment lines.
-2. An AI model builds a room that fits.
-3. Lean proves your rules for that exact room, or the room is never published.
-4. Agents fetch your cast from the Creator Store, strip every script, and run
-   the proved safety gate.
-5. You press **Play in Roblox** and try to escape.
-6. You lose. You press **Show why**.
+The proof means what its definitions say. Here, being caught means a watcher
+lands on your cell or you swap cells with one. The maze is turn based; the
+claims concern those rules. Appearance, fun, character likenesses, and human
+reaction time are outside those claims. For an uploaded requirement, the app
+shows the requirement itself; it reserves the familiar room labels for the
+reviewed samples.
 
-## Built by agents, inside Roblox Studio
+- Lean's kernel and the standard axioms `propext`, `Quot.sound`, and
+  `Classical.choice` are trusted. During play, the Lean compiler is also
+  trusted to execute the proved functions correctly.
+- The Python coordinator, JSON adapters, HTTP, filesystem operations, upload
+  read loop, and the call that hands move names to the runtime are outside
+  the proofs. The operating system and `bubblewrap` provide isolation while
+  uploaded Lean compiles. `make check` exercises the real endpoints and
+  checks that the judge rejects invalid submissions.
+- The browser, Roblox Studio, Luau scripts, `HttpService`, and the Windows/WSL
+  connection draw and transport the game state. They are not formally
+  verified. Show why's caption comes from the coordinator; the runtime
+  checks the regions used for the display.
+- The decor gate checks the model tree reported to it. It trusts the Studio
+  tooling to report that tree accurately and use the checked asset. The
+  scene compares instance counts when cloning a model; that is not a proof
+  of asset identity. Manually cached watcher looks are trusted to have been
+  checked. The gate cannot inspect an image or prove that a model resembles
+  its name. Material variants use a separate class-and-children filter.
+  Roblox, its Creator Store, and the Studio MCP connection remain trusted.
+- The generation agent and its search results supply candidates. Acceptance
+  depends on the proof check. Decoration is visual only and does not change
+  a move, a win, or a watcher's position.
 
-Our agents drive Roblox Studio directly through its MCP server. They find the
-characters on the Creator Store, strip out every script, run the safety gate,
-and dress the room while you watch. They also play-tested the game in
-Studio as it was built.
+The impossibility certificate ignores gems, so it must establish that the
+exit itself is unreachable. See [UPLOAD_SECURITY.md](UPLOAD_SECURITY.md) for
+the upload boundary in more detail.
 
-## Uploads you can trust, proved in Lean
+## Running the parts yourself
 
-You upload your own Lean file, so the upload path is a door from the internet
-into the machine. We locked it with proofs. Every upload goes through the
-**upload gate**, a small Lean program the server runs on each request, and these
-five properties of that gate are proved and judged by `lake comparator`:
+There is a fair amount to install for the full setup. The browser examples
+are the easiest part to run locally. The live walkthrough also needs Roblox
+Studio, the generation tools, and the local connection between them.
 
-- **The file name you send is ignored.** It never changes where your upload is
-  stored (`upload_ignores_client_name`).
-- **Uploads cannot escape their folder.** Every stored path is
-  `uploads/<32 random hex digits>/UserSpec.lean` (`upload_fixed_shape`).
-- **The size limit holds, whatever the chunking.** The gate never lets through
-  more bytes than the limit (`upload_never_over_limit`).
-- **The limit is exact.** An upload is accepted exactly when it fits: 64 KiB
-  is accepted, one byte more is rejected (`upload_accepted_iff_within_limit`).
-- **Accepted means complete.** An accepted upload is passed through in full,
-  every chunk, in order (`upload_accepted_writes_everything`).
+| What you want to run | What you need |
+| --- | --- |
+| Browser and shipped rooms | Linux or WSL, `make`, `curl`, Python 3, and Lean. `make install` installs Lean through elan if needed and builds the game with the pinned toolchain. |
+| New room generation | `bubblewrap`, a Python environment with the Claude Agent SDK, and `ANTHROPIC_API_KEY`. `make install` attempts to set up the environment through `uv` or Python's `venv` and pip. |
+| Roblox view | Roblox Studio on Windows, with the coordinator running in WSL. `make roblox` downloads the pinned Rojo and selene tools and the Rojo plugin into `.tools/`, checking their SHA-256 hashes. |
+| Creator Store art and dressing | Roblox's Studio MCP, a configured local launcher, access to the assets, and Studio open in Edit mode. The launcher script is not included in the repo; its path is `LAUNCHER` in [app/studio.py](app/studio.py). |
 
-`make check` tests the same gate through the real HTTP endpoint: a `../`
-file name lands in its random folder, the exact limit is accepted, one byte
-over is rejected, and a rejected upload leaves nothing behind. Your Lean is
-then compiled inside a bubblewrap sandbox with no network, and a room is
-published only when `lake comparator` accepts its proof.
-
-## Run it
-
-```sh
-make install && make run      # then open http://127.0.0.1:8642
-make roblox                   # build the Roblox place, then open it in Studio
-```
-
-Runs on Linux or WSL. Making new rooms also needs `bubblewrap` and
-`ANTHROPIC_API_KEY`. The shipped rooms play without either.
-To let Codex build rooms instead: `uv pip install --python .venv/bin/python
-openai-codex`, log in once with its `codex login`, then `RIGGED_BACKEND=codex make run`.
-
-## How it works
-
-```
-Roblox place ─┐   (server Script, HttpService)
-browser ──HTTP┴─> coordinator (app/server.py, Python stdlib)
-                    ├─ upload gate (Lean exe): stores and size-limits uploads
-                    ├─ game runtime (Lean exe: maze): every move
-                    ├─ agent (app/agent.py, Claude Agent SDK) ─ tools ─┐
-                    │      try_level: runtime checks + search hints    │
-                    │      submit:    send level + proof to the judge  │
-                    └─ judge (app/verify.py): sandboxed build, then lake comparator
-                           only an accepted proof publishes a level → artifacts/
-```
-
-1. The uploaded requirement (one Lean file defining
-   `UserSpec.requirement : <Game>.Variant → Prop`) streams through the Lean
-   upload gate and is built in a `bwrap` sandbox with no network.
-2. Claude drafts a level and calls `try_level`, which runs the game's own Lean
-   runtime: data checks, a search, and proof hints. It then calls `submit` with
-   the level and a `Solution.lean`.
-3. The coordinator prints the level as `Candidate.lean` (using the runtime),
-   writes the challenge
-   `WellFormed Candidate.variant ∧ Playable Candidate.variant ∧ UserSpec.requirement Candidate.variant`
-   itself, builds the proposed proof in a sandboxed copy for diagnostics, and
-   then runs `lake comparator` in a fresh copy where the proof was never
-   compiled. A rejection goes back to Claude with Lean's messages. Nothing
-   Claude says can publish a level.
-4. An accepted level is published as a self-contained Lean project
-   (`artifacts/<id>/`, or `examples/<id>/` for shipped levels) with the
-   level, requirement, challenge, proof, judge log, and their hashes. You can
-   `cd` into one and run `lake comparator` yourself.
-5. Before play, the coordinator asks the runtime to print the level it loaded
-   and refuses to start unless it matches the judged `Candidate.lean` byte for
-   byte, and refuses levels judged against an older template.
-
-## Play it in Roblox Studio
-
-The same levels play in Roblox Studio as a first-person Backrooms game. You
-need Roblox Studio on Windows and this repo in WSL. The place lists the maze
-levels (the newest level made from each requirement) and shows each level's
-claim. You walk the maze, and every step is a reply from the Lean runtime: the
-place only draws it. **Show why** is a button on the play screen. On a rigged
-level the lights go out, the camera rises, and the checked cells glow one
-guard turn at a time. The watchers stand where the runtime puts them on that
-turn (`drawing.guardsByTurn`). The caption is the one the coordinator sends
-(`reveal.check.caption`), shown as it is. On a fair level, Show why replays a
-winning route.
-
-1. In WSL: `make run`. This starts the coordinator on `http://127.0.0.1:8642`;
-   the place calls it.
-2. In WSL: `make roblox`. It builds `build/RiggedArcade.rbxlx` with Rojo 7.7.1
-   and checks the Luau with selene. The first run downloads both, and the Rojo
-   plugin, into `.tools/` (each checked against a pinned SHA-256). The
-   coordinator address is one value: `make roblox ROBLOX_URL=http://...`.
-3. On Windows, open that file in Roblox Studio: File > Open from File >
-   `\\wsl$\<your distro>\<path to the repo>\build\RiggedArcade.rbxlx`. Do not
-   save the place: `make roblox` builds it again.
-4. Optional, live sync while you edit `roblox/`: run `make roblox-serve`, copy
-   `.tools/Rojo.rbxm` to `%LOCALAPPDATA%\Roblox\Plugins\` (restart Studio if it
-   was open), then Plugins > Rojo > Connect (`localhost`, port `34872`).
-5. Optional, art and decor: with the place open in Edit mode, run `make dress`
-   (below). Studio must then stay open, because the art lives only in the open
-   place.
-6. Press **Play** (F5). Keys: W step, A/D turn, S turn around, Space wait,
-   R restart, M map. The place's server script calls the coordinator, and
-   the place's Output goes to `build/roblox.log`.
-
-**Play in Roblox.** While the place is playing, the web page's **Play in
-Roblox** button opens that level in the place and starts it, as a click on the
-level and Play would. The place asks the coordinator for the last level sent
-(`GET /api/roblox/play`) once a second.
-
-**Art and decor (`make dress`).** Run it with Studio in Edit mode, before Play.
-It needs the decor gate built (`make install` does that) and Roblox's Studio
-MCP, a program that lets scripts control Studio. `app/studio.py` starts it
-through a small script that runs Roblox's `mcp.bat` (not in the repo; its path
-is `LAUNCHER` in `app/studio.py`). The decor gate is the Lean program that
-decides which Creator Store models may enter the scene; "What is proved" lists
-its theorems. `make dress` empties and refills the folder
-`ServerStorage.DressPool` in the open place with:
-
-- the art kit: a ceiling light and a watcher;
-- each maze level's decor props, from the level's `decor.json` or found by
-  searching the Creator Store with words from its brief or title;
-- three surfaces (wall, floor, ceiling) from the Backrooms Material Pack, once
-  you set their numbers at the top of `app/dress.py`.
-
-From each model it deletes every script and every other class the gate does not
-allow, asks the gate, and keeps the model only if the gate says yes. A last
-sweep destroys the whole pool if anything not allowed is left (`python3
-app/dress.py --check` runs just that sweep). It refuses to run during Play.
-Without the pool, the place uses plain built-in materials, lights and
-watchers. Decor props stand against walls and in corners, away from the start,
-the exit, the gems, and every cell a watcher walks on.
-
-**Watcher looks.** Each watcher gets the first of these that works:
-
-1. The level's own decor watcher (found by `make dress`).
-2. A cached look that the level's brief names. Write `watcher: <name>` in the
-   "Describe the place" field on the web page, or a comment line
-   `-- watcher: <name>` in your Lean requirement (Lean ignores it, so it is not
-   part of what is proved). The place looks for a model with that name, in
-   lower case, in `ServerStorage.DressPool.Looks`.
-3. The art watcher, `ServerStorage.DressPool.Art.Watcher`.
-4. A plain dark shape.
-
-`make dress` does not fill `Looks`, and it empties the pool first, so add
-cached looks by hand afterwards. Our demo place has three (`subaru natsuki`,
-`bernie sanders`, `jon snow`), and its art watcher is Subaru Natsuki. The scene
-uses a model only if it carries `checkedNodes` (the number of instances the
-decor gate checked) and a fresh clone still has that many.
-
-Check by hand after a change:
-
-- Play shows "Coordinator ready", and the level list shows the maze levels,
-  the same ones as the web page.
-- A level shows its claim, and Play starts it.
-- In a rigged maze a watcher catches you. R restarts. M switches the map view.
-- Show why glows the checked cells under the coordinator's caption. On a fair
-  level it replays the route to "You escaped!".
-
-## Why the proofs are about the game you play
-
-The rules are executable Lean, and the same functions are what the game runs.
-
-- Maze: the game process reads the move names with `MazeRuntime.replayMoves`,
-  and `maze_runtime_replays_with_run` proves that it then answers with
-  `Maze.run` of those moves, the function the other theorems are about. It
-  refuses any other name. The browser holds no rules; it draws the state the
-  runtime returns.
-
-Neither renderer decides a move, a win, or a level: not the browser, and not
-the Roblox place. Each draws the state the runtime returns. The cells Show why
-lights come with the level, and the runtime checks exactly those cells with
-`checkRegions` each time a level opens. The guard positions for each Show why
-turn come from the runtime (`drawing`) each time a level opens.
-
-## What is proved
-
-Repository theorems, judged by `lake comparator` (see `Verification/`):
-
-| Theorem | In plain words |
-|---|---|
-| `maze_regions_sound` | For every maze and every certificate: if the certificate passes `checkRegions`, no list of moves of any length wins. |
-| `maze_isOpen_iff` | The fast bit test for open cells means "on the board and not a wall". |
-| `maze_never_leaves_regions` | For every maze and every list of painted cells (one list per turn of the guards' cycle): if the lists pass `checkRegions`, then after any moves, while the game is on, you stand on a painted cell of the current turn. Show why paints lists like these; each time a level opens, the runtime runs `checkRegions` on the lists it paints. |
-| `maze_runtime_replays_with_run` | The maze game process accepts a list of move names exactly when every name is a move, and then it answers with `Maze.run` of those moves. It refuses any other name. |
-| `upload_ignores_client_name` | The file name a client sends never changes where its upload is stored. |
-| `upload_fixed_shape` | Every stored path is `uploads/<32 lowercase hex digits>/UserSpec.lean`, so it cannot leave `uploads/`. |
-| `upload_never_over_limit` | The bytes the gate lets through never add up to more than the limit, for any chunking. |
-| `upload_accepted_iff_within_limit` | An upload is accepted exactly when it fits: the limit is accepted, one byte more is rejected. |
-| `upload_accepted_writes_everything` | For an accepted upload, the gate passes every chunk through, in order (a statement about chunk sizes). |
-| `decor_only_allowed_classes` | In an accepted model, every instance at every level has a class from the allowlist. |
-| `decor_no_bad_classes` | An accepted model holds none of 59 classes from the threat list: no script, explosion, seat, spawn, prompt, text, sound, light, effect or special mesh. |
-| `decor_top_is_model` | The top instance of an accepted model is a Model. |
-| `decor_parts_are_inert` | Every part in an accepted model is anchored, with collisions, touch events and queries off. |
-| `decor_parts_stay_in_box` | Every part in an accepted model is inside the slot box. |
-| `decor_humanoids_show_nothing` | Every Humanoid in an accepted model shows no name and no health bar. |
-| `decor_within_limits` | An accepted model has at most 500 instances and at most 8 levels. |
-| `decor_ignores_names` | Two models that differ only in names get the same answer. |
-| `decor_accepts_safe_decor` | Every model that meets the rules is accepted, so the gate is not "always no". |
-| `decor_smaller_stays_accepted` | Deleting instances from an accepted model keeps it accepted. `Clone()` deletes instances that are not `Archivable`. |
-| `decor_id_is_digits_only` | An accepted asset id has 1 to 19 characters, all digits 0–9. So it has no quote, bracket or line break. |
-
-`make dress` runs the decor gate on each model it puts into the Roblox place.
-What these proofs do not cover is listed under "What is trusted".
-
-Per published level, one theorem `accepted` about that exact level:
-
-- **Maze, rigged**: `Maze.Unwinnable` (no move list of any length wins) and
-  `Maze.Playable`: without the guards, a route collects every gem and reaches
-  the exit, and the first move is safe. The proof is a certificate (one set of
-  cells per turn of the guards' cycle) checked by the kernel with bit
-  arithmetic, plus `maze_regions_sound`.
-- **Maze, fair**: `Maze.Winnable`, with a winning move list replayed by the kernel.
-
-Each spec file comes with concrete examples that meet its hypotheses and
-examples of bad behaviour it rejects (`Specs/UploadSpec/Proofs.lean`), and
-`make verify` lists the definitions each main theorem depends on, which is
-the surface to review: `templates/maze/Maze/Game.lean` and `Spec.lean`,
-`templates/maze/MazeRuntime/Replay.lean`, `app/upload/Upload/Store.lean`,
-`Specs/UploadSpec/`.
-
-## What is trusted
-
-- **Lean's kernel** and the axioms `propext`, `Quot.sound`, `Classical.choice`.
-  No `sorry`, no `native_decide`, no new axioms (`make check` confirms the judge
-  rejects each).
-- **The definitions in the statements.** A theorem means only what they say:
-  for example "caught" means a guard lands on your cell or you swap cells.
-- **The Lean compiler, while you play.** The running game is compiled code of
-  the proved functions. The kernel checked the theorems about those functions.
-- **Not proved:** the JSON adapters; the line in the maze process that passes
-  the request's names to `replayMoves`; the Python coordinator, HTTP, the
-  browser drawing, the Roblox place (next bullets), and the upload gate's
-  file-system calls and read loop (which calls the proved `Upload.admit`
-  before writing each chunk of at most 64 KiB).
-  The runtime's compiled `checkRegions` checks Show why's glowing cells each
-  time a level is opened. The caption beside them comes from the coordinator
-  (`reveal.check.caption`).
-  `make check` tests these through the real endpoints. The `bwrap` sandbox and
-  the operating system are trusted to isolate uploaded Lean, which can run code
-  while it compiles.
-- **The Roblox place is an untrusted renderer**, like the browser: it decides
-  no move, win, or level. Not proved: Roblox Studio, the place's Luau scripts,
-  `HttpService`, and the localhost path from Windows to the coordinator in WSL.
-  In-game text does not go through Roblox's `TextService` filter, because the
-  place runs only in Studio and is not published.
-- **The decor gate** (`app/decor/`, proved in `Specs/DecorSpec/`) decides
-  whether a Creator Store model may go into the scene. The proofs cover that
-  decision. Not proved: that the Luau in `app/dress.py` reports a model's tree
-  truthfully (sizes, positions, turns; a model reported with all sizes zero
-  would pass the box rule); that the scene uses the model the gate checked (it
-  only compares the number of instances with the model's `checkedNodes`; the
-  cached watcher looks, added by hand, are trusted to have passed the gate);
-  the JSON reader in `decor-gate`; Roblox's `ClassName`; and what a picture on a
-  model shows (the gate cannot see pixels).
-- **Models and art also rely on** the Studio MCP (it inserts the models we ask
-  for and runs our Luau as written), Roblox Studio itself, and the Creator
-  Store. The MaterialVariants (the wall, floor and ceiling surfaces) are not
-  models, so the gate does not check them: the dress step keeps only instances
-  whose class is exactly `MaterialVariant` and removes their children.
-- **Decor is visual only.** Every decor part is anchored, with collisions,
-  touch events and queries off. Decor never changes a move, a win, or where a
-  watcher stands; the runtime decides those.
-- **Search and the agent are not trusted.** They only propose; the kernel and
-  `lake comparator` decide.
-- **Watcher looks named in a spec.** A spec may list looks in Lean
-  (`UserSpec.watcherLooks`) and require one watcher per look. Lean proves the
-  counting (how many watchers, which names repeat). Not proved: that a Roblox
-  model looks like its name. The models were fetched and gate-checked by an agent
-  through the Studio MCP and cached in the open place.
-- **Codex and the OpenAI model are not trusted either**, the same as Claude.
-
-Not claimed: that a level is fun, looks fair, or that a human cannot react fast
-enough. Those are playtesting questions. A label like "rigged" appears only for
-the reviewed sample requirements; an uploaded requirement is shown as "checked
-against your uploaded requirement", with its text.
-
-## Limits
-
-- The maze certificate ignores gems, so a rigged maze must cut off the exit
-  itself. Search failing to find a win is never presented as a proof.
-- The maze is turn-based by design; the proof covers that model, not real-time play.
-- One generation job at a time, with a time and cost budget. Running out of
-  budget is reported as such; it is not a proof that a request is impossible.
-- Levels are designed by Opus 5.5 in fast mode by default.
-  Fast mode costs twice as much, so `RIGGED_BUDGET_USD=3` buys about half the work;
-  raise it if jobs run out of budget.
-- The judge needs Linux (`lake comparator` sandboxes with `bwrap`).
-- The Roblox place is a Studio-only demo: one player, not published. Its art
-  pool is lost each time Studio closes the place, so run `make dress` again
-  before the next Play.
-
-## Commands
+Start the browser app:
 
 ```sh
-make install       # Lean, the game, all proofs, Python env
-make run           # the app on :8642
-make verify        # axioms + trusted definitions per theorem, then lake comparator on Verification/
-make check         # acceptance checks against the judge, runtime, and upload endpoint (server running)
-make examples      # rebuild the shipped levels through the judge
-make roblox        # build the Roblox place build/RiggedArcade.rbxlx (gets Rojo and selene into .tools/)
-make roblox-serve  # live-sync roblox/ into the place open in Studio (never the art)
-make dress         # fill the place open in Studio with the art kit and each level's decor (Edit mode, before Play)
+make install && make run
 ```
 
-## Layout
+Open [http://127.0.0.1:8642](http://127.0.0.1:8642). The shipped rooms play
+without a model key or `bubblewrap`. Making new rooms needs the generation
+setup above.
 
+To use Codex for generation instead, install `openai-codex` in `.venv`, log in
+with its `codex login`, and start the server with `RIGGED_BACKEND=codex make run`.
+
+### Opening the Roblox place
+
+With the coordinator running, use another WSL terminal:
+
+```sh
+make roblox
 ```
-templates/maze/      Maze/Game.lean (rules) · Spec.lean · Cert.lean (certificate + soundness) · runtime · GUIDE.md
-app/upload/          Upload/Store.lean (storage decision, size limit) · UploadGate.lean (the gate)
-Specs/UploadSpec/    readable upload specs and their proofs
-app/decor/           Decor/Gate.lean (the decor gate, proved) · DecorGate.lean (its program)
-Specs/DecorSpec/     readable decor specs and their proofs
-Verification/        repository challenge, solution, audit
-app/                 server.py · verify.py (judge) · agent.py · templates.py · web/
-                     dress.py (make dress) · studio.py (Studio MCP) · decor_gate.py
-samples/             reviewed sample requirements per game
-examples/            shipped levels, each a self-contained judged Lean project
-scripts/             make_examples.py · check.py
-roblox/              Rojo project for the Roblox place (renderer only)
-```
+
+Open `build/RiggedArcade.rbxlx` in Roblox Studio on Windows using **File > Open
+from File**. Windows can reach it at
+`\\wsl$\<your distro>\<path to the repo>\build\RiggedArcade.rbxlx`.
+If the coordinator needs another address, build with
+`make roblox ROBLOX_URL=http://...`.
+
+For art and props, configure the Studio MCP launcher, then run `make dress`
+while Studio is in Edit mode. On the first run, it prints the available
+materials. Set `WALL`, `FLOOR`, and `CEILING` in [app/dress.py](app/dress.py)
+to the wallpaper, carpet, and ceiling numbers from that list, then run
+`make dress` again.
+
+Each run refills `ServerStorage.DressPool`. Cached character looks need to
+be added afterwards; `make dress` does not populate `DressPool.Looks`.
+Those assets live in the open Studio session and need preparing again when
+the place closes. A fresh build uses the built-in materials and shapes until
+that setup is done.
+
+Press **Play** (F5). Use W to step, A/D to turn, S to turn around, Space to
+wait, R to restart, and M for the map. While Studio is playing, **Play in
+Roblox** in the browser sends the selected room to the open place.
+
+The place currently runs in Studio with one player. It is not a published
+Roblox experience, and its in-game text does not pass through `TextService`.
+That local Studio session, including its prepared artwork, is what I'll
+show you in person.
+
+### Useful commands
+
+| Command | Purpose |
+| --- | --- |
+| `make install` | Set up Lean, build the game and proofs, and attempt to install the generation SDK. |
+| `make run` | Start the coordinator and browser app on port 8642. |
+| `make verify` | Audit axioms and trusted definitions, then run Comparator on `Verification/`. |
+| `make check` | Check the judge, runtime, and upload endpoints with the server running. |
+| `make examples` | Rebuild the shipped rooms through the judge. |
+| `make roblox` | Build `build/RiggedArcade.rbxlx`. |
+| `make roblox-serve` | Sync source changes into Studio through Rojo; art is separate. |
+| `make dress` | Prepare the open place's art and props in Edit mode. |
+
+For live source sync, copy `.tools/Rojo.rbxm` into
+`%LOCALAPPDATA%\Roblox\Plugins\`, restart Studio, run `make roblox-serve`,
+and connect through **Plugins > Rojo** on `localhost:34872`.
+
+## Reading the code
+
+- [templates/maze/](templates/maze/) contains the game rules, specs,
+  certificate checker, runtime, and [level design guide](templates/maze/GUIDE.md).
+- [app/agent.py](app/agent.py), [app/verify.py](app/verify.py), and
+  [app/server.py](app/server.py) handle generation, judging, and play.
+- [Verification/](Verification/) contains the repository's proof challenge,
+  solution, examples, and audits.
+- [samples/maze/](samples/maze/) contains reviewed requirements;
+  [examples/](examples/) contains complete judged rooms. Each room is a
+  self-contained Lean project where you can run `lake comparator`.
+- [roblox/](roblox/) contains the Roblox renderer.
+
+Built for the Vibecheck hackathon. [RULES.md](RULES.md) describes the judging
+criteria, and [CLAUDE.md](CLAUDE.md) records the verification guidelines.
+[ARCHITECTURE.md](ARCHITECTURE.md) preserves the design history; the current
+implementation is the maze workflow described here.
 
 ## Art credits
 
-All art comes from the Roblox Creator Store and is used inside Roblox Studio
-only. No model file is stored in the repo (`roblox/art/` is git-ignored),
-because Roblox content may be used on Roblox only. `make dress` inserts models
-into the open place by id.
+The artwork comes from the Roblox Creator Store and is used inside Roblox
+Studio. Model files are not committed to this repo. `make dress` inserts
+models into the open place by ID.
 
-- Art kit, inserted by `make dress`: Roof Light (12737467199) by
-  SillyGoofyDumb, backrooms monster (10699449494) by mihopb1, and Yasu's
-  Backrooms Material Pack (89043606186394) by mvyasu.
-- Watcher looks in our demo place: Subaru Natsuki (122480168835819) by O_Kar,
-  "annoying robot with bernie sanders face" (1192620519) by Arsaw (kept under
-  the name `bernie sanders`), and Jon Snow (934805927) by Aethanius.
-- Decor props: Creator Store models picked per level, from its `decor.json` or
-  searched for among free models from verified creators. The dress step does
-  not record which model it took, so props are not credited one by one.
-- Sounds, Roblox audio used by id and never stored: light hum 9112823813
-  (Light Bulb Buzz 2, ProSoundEffects), room tone 9125446564 (Command Room Tone
-  Deep Air Conditioning Hum, ProSoundEffects), drone 1843770413 (Low Drone 42,
-  APMOfficial), and light switch click 9120484192 (Wall Light Switch 2,
-  ProSoundEffects).
-
-Built for the Vibecheck hackathon. Plan and reasoning: `ARCHITECTURE.md`,
-`UPLOAD_SECURITY.md`, `RULES.md`.
+- Art kit: Roof Light (12737467199) by SillyGoofyDumb, backrooms monster
+  (10699449494) by mihopb1, and Yasu's Backrooms Material Pack
+  (89043606186394) by mvyasu.
+- Watcher looks in my prepared place: Subaru Natsuki (122480168835819) by
+  O_Kar, "annoying robot with bernie sanders face" (1192620519) by Arsaw,
+  and Jon Snow (934805927) by Aethanius.
+- Other props come from Creator Store searches or each level's `decor.json`.
+  The dressing step does not currently record individual prop credits.
+- Audio, used by ID: Light Bulb Buzz 2 (9112823813), Command Room Tone Deep
+  Air Conditioning Hum (9125446564), and Wall Light Switch 2 (9120484192) by
+  ProSoundEffects; Low Drone 42 (1843770413) by APMOfficial.
