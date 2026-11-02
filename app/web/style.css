@@ -94,3 +94,18 @@ kbd { font: 12px var(--mono); border: 1px solid var(--line); border-bottom-width
   .work { grid-template-columns: 1fr; height: auto; }
   .code { grid-template-rows: 340px 440px; border-right: 0; border-bottom: 1px solid var(--line); }
 }
+
+/* Alignment: both left panes and the game column share one grid of rows:
+   a 40px head, a one-line note, then the content. */
+.pane-head, .play-head { height: 40px; flex-wrap: nowrap; margin-bottom: .35rem; min-width: 0; }
+.pane-head select, .play-head select { max-width: 16rem; min-width: 0; text-overflow: ellipsis; }
+.pane-head .tabs { flex-wrap: nowrap; overflow-x: auto; min-width: 0; }
+.pane-note { height: 1.4em; line-height: 1.4em; margin: 0 0 .5rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.make { margin-top: .6rem; height: 38px; }
+#gen-note { height: 1.3em; min-height: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.play { padding-top: .9rem; gap: 0; }
+.play > * + * { margin-top: .8rem; }
+.play-head .tag:empty, .play-head .note:empty { display: none; }
+.play-head .is-off { visibility: hidden; }
+.board-wrap { width: 100%; max-width: 680px; display: flex; justify-content: center; align-items: center; min-height: 360px; }
+.keys, .claim { width: 100%; max-width: 680px; }

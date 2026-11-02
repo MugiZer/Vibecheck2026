@@ -20,6 +20,7 @@
           <select id="spec-pick" aria-label="Which spec"></select>
           <label class="file">Upload .lean<input type="file" id="upload" accept=".lean"></label>
         </div>
+        <p class="note pane-note">The spec the next Generate sends to the model.</p>
         <pre class="src" id="spec-body" tabindex="0"></pre>
         <form id="make" class="make">
           <input id="brief" type="text" placeholder="Describe the place (optional)" aria-label="Brief for the level">
@@ -33,7 +34,7 @@
           <h2>Lean</h2>
           <div class="tabs" role="tablist" id="tabs"></div>
         </div>
-        <p class="note tab-note" id="tab-note"></p>
+        <p class="note pane-note" id="tab-note"></p>
         <pre class="src" id="lean-body" tabindex="0"></pre>
       </div>
     </section>
