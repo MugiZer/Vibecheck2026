@@ -3,6 +3,7 @@
 #   make run        start the app on http://127.0.0.1:8642 (examples play without any keys)
 #   make verify     run lake comparator on the template, upload, and decor theorems (Linux)
 #   make check      acceptance checks against the judge, runtime, and uploads (server running)
+#   make warm       one upload check and judge run on an example, a minute before a live demo
 #   make examples   rebuild the shipped example levels through the judge (Linux)
 #   make roblox     build the Roblox place build/RiggedArcade.rbxlx (gets Rojo and selene into .tools/)
 #   make roblox-serve  live-sync roblox/ into the place open in Studio (never the art)
@@ -14,7 +15,7 @@ export PATH := $(HOME)/.elan/bin:$(PATH)
 PY = $(shell [ -x .venv/bin/python ] && echo .venv/bin/python || echo python3)
 ROBLOX_URL ?= http://127.0.0.1:$(PORT)
 
-.PHONY: install run verify check examples clean roblox roblox-serve roblox-prep dress
+.PHONY: install run verify check warm examples clean roblox roblox-serve roblox-prep dress
 
 install:
 	@command -v lake >/dev/null 2>&1 || { echo "Installing Lean with elan..."; \
@@ -33,6 +34,9 @@ verify:
 	lake build
 	lake env lean Verification/Audit.lean
 	lake comparator --config Verification/comparator.json
+
+warm:
+	@$(PY) scripts/warm.py
 
 check:
 	$(PY) scripts/check.py
