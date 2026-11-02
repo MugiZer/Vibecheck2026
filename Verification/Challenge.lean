@@ -1,4 +1,5 @@
 import Maze
+import MazeRuntime.Replay
 import UploadSpec.Destination
 import UploadSpec.Limit
 import DecorSpec.Safe
@@ -76,3 +77,12 @@ theorem maze_never_leaves_regions (v : Maze.Variant) (cells : List (List Nat))
     (h : Maze.checkRegions v (cells.map Maze.maskOfList) = true)
     (moves : List Maze.Move) (hplay : (Maze.run v moves).status = .playing) :
     (Maze.run v moves).pos ∈ cells.getD (Maze.run v moves).turn [] := sorry
+
+/-- Maze: when the game process replays a list of move names, it accepts the
+list exactly when every name is a move, and then it returns the state that
+`Maze.run` gives for those moves, in that order. A list with any other name is
+refused. -/
+theorem maze_runtime_replays_with_run (v : Maze.Variant) (names : List String) (s : Maze.State) :
+    MazeRuntime.replayMoves v names = .ok s ↔
+      ∃ moves : List Maze.Move,
+        names.map MazeRuntime.Move.ofString? = moves.map some ∧ s = Maze.run v moves := sorry

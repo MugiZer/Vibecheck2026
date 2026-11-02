@@ -1,5 +1,6 @@
 import Lean.Data.Json
 import MazeRuntime.Search
+import MazeRuntime.Replay
 
 /-!
 # JSON for the maze runtime (untrusted adapter)
@@ -13,14 +14,6 @@ namespace MazeRuntime
 open Lean Maze
 
 deriving instance FromJson, ToJson for Maze.Variant
-
-def Move.ofString? : String → Option Move
-  | "up" => some .up
-  | "down" => some .down
-  | "left" => some .left
-  | "right" => some .right
-  | "stay" => some .stay
-  | _ => none
 
 def Move.name : Move → String
   | .up => "up"

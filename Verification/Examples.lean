@@ -57,4 +57,31 @@ example : Maze.checkRegions tiny ([[0, 1, 2, 3, 6]].map Maze.maskOfList) = false
 -- ... and painted cells that include the exit.
 example : Maze.checkRegions tiny ([[0, 1, 2, 3, 4, 6, 8]].map Maze.maskOfList) = false := by decide
 
+/-! ## `maze_runtime_replays_with_run` -/
+
+-- A concrete input: two real move names are accepted and played with `Maze.run`.
+example : MazeRuntime.replayMoves tiny ["right", "down"] = .ok (Maze.run tiny [.right, .down]) :=
+  (maze_runtime_replays_with_run tiny ["right", "down"] _).mpr ⟨[.right, .down], rfl, rfl⟩
+-- The spec refuses a name that is not a move ...
+example : ¬ ∃ moves : List Maze.Move, ["teleport"].map MazeRuntime.Move.ofString? = moves.map some := by
+  rintro ⟨moves, h⟩
+  cases moves <;> simp [MazeRuntime.Move.ofString?] at h
+-- ... and a process that ignored the move (answered "right" with the start state).
+example : ¬ ∃ moves : List Maze.Move,
+    ["right"].map MazeRuntime.Move.ofString? = moves.map some ∧ Maze.start tiny = Maze.run tiny moves := by
+  rintro ⟨moves, h1, h2⟩
+  match moves, h1 with
+  | [m], h1 =>
+    simp [MazeRuntime.Move.ofString?] at h1
+    subst h1
+    revert h2; decide
+-- What it buys: on a level proved unwinnable, no reply the process gives is a win.
+example (v : Maze.Variant) (hv : Maze.Unwinnable v) (names : List String) (s : Maze.State)
+    (h : MazeRuntime.replayMoves v names = .ok s) : s.status ≠ .escaped := by
+  obtain ⟨moves, -, rfl⟩ := (maze_runtime_replays_with_run v names s).mp h
+  exact fun hw => hv ⟨moves, hw⟩
+-- The hypothesis `Maze.Unwinnable v` holds on a concrete level.
+example : Maze.Unwinnable tiny :=
+  maze_regions_sound tiny (tinyCells.map Maze.maskOfList) (by decide)
+
 end Examples

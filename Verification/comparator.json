@@ -5,6 +5,7 @@
     "maze_regions_sound",
     "maze_isOpen_iff",
     "maze_never_leaves_regions",
+    "maze_runtime_replays_with_run",
     "upload_ignores_client_name",
     "upload_fixed_shape",
     "upload_never_over_limit",

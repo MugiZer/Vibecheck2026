@@ -7,7 +7,7 @@ defaultTargets = ["Maze", "MazeRuntime", "maze", "Upload", "UploadSpec", "upload
 name = "Maze"
 srcDir = "templates/maze"
 
-# Untrusted runtime support: search and JSON.
+# Runtime support: search and JSON (untrusted), and Replay (proved, see Verification/).
 [[lean_lib]]
 name = "MazeRuntime"
 srcDir = "templates/maze"
