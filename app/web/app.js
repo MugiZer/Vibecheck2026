@@ -10,8 +10,6 @@ const api = async (path, opts = {}) => {
 
 const ui = { art: null, session: null, seq: 0, state: null, busy: false, reveal: null,
   samples: [], upload: null, levels: [], tab: "Mechanics", job: null };
-const canvas = $("board");
-const ctx = canvas.getContext("2d");
 const KIND = { unwinnable: ["rigged", "rigged"], winnable: ["fair", "fair"], "exactly-one": ["one way out", "fair"] };
 
 // ---------- Lean text ----------
@@ -103,40 +101,22 @@ async function loadLevels(selectId) {
   $("level").classList.toggle("is-off", !arts.length);
   $("to-roblox").classList.toggle("is-off", !arts.length);
   if (pick) await openLevel(pick);
-  else showOverlay("No level yet", "Upload a spec on the left and press Generate level.");
+  else { $("kind").textContent = ""; $("tab-note").textContent = "No level yet. Upload a spec and press Generate level."; }
 }
 $("level").onchange = () => openLevel($("level").value);
 
 async function openLevel(id) {
-  stopReveal();
   const art = await api(`/api/artifacts/${id}`);
   ui.art = art;
   $("level").value = id;
   const k = KIND[art.label] || ["custom", ""];
   $("kind").textContent = k[0];
   $("kind").className = `tag ${k[1] || ""}`;
-  $("claim").hidden = false;
-  $("claim-text").textContent = art.claim;
-  $("claim-scope").textContent = art.scope;
-  $("claim-who").textContent = art.example ? "Prepared example, checked by lake comparator" : `Made by ${art.generatedBy || "a model"}, checked by lake comparator`;
-  $("reveal").hidden = !art.reveal;
-  $("reveal-note").hidden = true;
   fillSpecPick();
   $("spec-pick").value = "level";
   showSpec();
   if (ui.tab === "Progress" && !ui.job) ui.tab = "Mechanics";
   buildTabs();
-  try {
-    const s = await api("/api/sessions", { method: "POST", body: JSON.stringify({ artifactId: id }) });
-    ui.session = s.sessionId; ui.seq = s.seq; ui.state = s.state;
-    $("overlay").hidden = true;
-    $("moves").textContent = "";
-    $("status-text").textContent = "";
-    render();
-  } catch (e) {
-    ui.session = null;
-    showOverlay("Cannot play this level", e.message);
-  }
 }
 
 // The Roblox place polls the coordinator and opens whatever level was sent last.
@@ -148,127 +128,6 @@ $("to-roblox").onclick = async () => {
   } catch (e) { $("roblox-note").textContent = e.message; }
   setTimeout(() => { $("roblox-note").textContent = ""; }, 4000);
 };
-
-// ---------- play ----------
-const DIRS = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right", w: "up", s: "down", a: "left", d: "right", " ": "stay" };
-
-async function act(action) {
-  if (!ui.session || ui.busy || !ui.art) return;
-  if (action !== "reset" && ui.state && ui.state.status !== "playing") return;
-  stopReveal();
-  ui.busy = true;
-  try {
-    const r = await api(`/api/sessions/${ui.session}/act`, { method: "POST", body: JSON.stringify({ seq: ui.seq, action }) });
-    ui.seq = r.seq; ui.state = r.state;
-    $("moves").textContent = r.moves ? `${r.moves} move${r.moves === 1 ? "" : "s"}` : "";
-    const st = r.state.status;
-    if (st === "caught") showOverlay("Caught", "Press R to try again.", "caught");
-    else if (st === "escaped") showOverlay("You got out", "This level was fair.", "out");
-    else $("overlay").hidden = true;
-    render();
-  } catch (e) {
-    if (e.status === 409 && e.body && e.body.seq !== undefined) ui.seq = e.body.seq;
-    $("status-text").textContent = e.message;
-  } finally { ui.busy = false; }
-}
-
-function showOverlay(title, sub, cls = "") {
-  const o = $("overlay");
-  o.className = `overlay ${cls}`;
-  o.innerHTML = `<div>${esc(title)}<small>${esc(sub || "")}</small></div>`;
-  o.hidden = false;
-}
-
-function render() { if (ui.art) drawMaze(); }
-
-const INK = { floor: "#fbfbfa", wall: "#2f3437", grid: "rgba(0,0,0,.06)", player: "#1f2326",
-  guard: "#9f2f2d", exitBg: "#edf3ec", exit: "#346538", gem: "#956400", glow: "rgba(52,101,56,.20)" };
-
-function drawMaze(revealTurn) {
-  const v = ui.art.variant, st = ui.state;
-  const size = Math.floor(Math.min(640 / v.width, 480 / v.height));
-  canvas.width = size * v.width; canvas.height = size * v.height;
-  const walls = new Set(v.walls);
-  const xy = (c) => [(c % v.width) * size, Math.floor(c / v.width) * size];
-  const mid = (c) => { const [x, y] = xy(c); return [x + size / 2, y + size / 2]; };
-  ctx.fillStyle = INK.floor; ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.strokeStyle = INK.grid; ctx.lineWidth = 1;
-  for (let c = 0; c < v.width * v.height; c++) {
-    const [x, y] = xy(c);
-    if (walls.has(c)) { ctx.fillStyle = INK.wall; ctx.fillRect(x, y, size, size); }
-    else ctx.strokeRect(x + .5, y + .5, size - 1, size - 1);
-  }
-  const guardsByTurn = (ui.art.drawing || {}).guardsByTurn || [];  // from the Lean runtime; none if it is missing
-  let guards = st ? st.guards : guardsByTurn[0] || [];
-  let next = st ? st.guardsNext : [];
-  if (revealTurn !== undefined) {
-    if (ui.art.reveal.check && ui.art.reveal.check.passes) {
-      ctx.fillStyle = INK.glow;
-      for (const c of ui.art.reveal.cellsByTurn[revealTurn] || []) { const [x, y] = xy(c); ctx.fillRect(x + 1, y + 1, size - 2, size - 2); }
-    }
-    guards = guardsByTurn[revealTurn] || [];
-    next = [];
-  }
-  const dot = (c, r, fill, stroke) => {
-    const [x, y] = mid(c);
-    ctx.beginPath(); ctx.arc(x, y, size * r, 0, Math.PI * 2);
-    if (fill) { ctx.fillStyle = fill; ctx.fill(); }
-    if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 2; ctx.stroke(); }
-  };
-  // The exit: a door frame. In Show why it gets a red frame: the caption says the exit never glows.
-  const [ex, ey] = xy(v.exit);
-  ctx.fillStyle = revealTurn === undefined ? INK.exitBg : INK.floor;
-  ctx.fillRect(ex + 2, ey + 2, size - 4, size - 4);
-  ctx.strokeStyle = revealTurn === undefined ? INK.exit : INK.guard; ctx.lineWidth = 2;
-  ctx.strokeRect(ex + 3, ey + 3, size - 6, size - 6);
-  v.gems.forEach((g, i) => { if (!(st && st.collected[i])) dot(g, .14, INK.gem); });
-  next.forEach((c) => dot(c, .3, null, "rgba(159,47,45,.35)"));
-  guards.forEach((c) => dot(c, .3, INK.guard));
-  if (revealTurn === undefined) dot(st ? st.pos : v.start, .28, INK.player);
-}
-
-// ---------- Show why ----------
-function stopReveal() { if (ui.reveal) { clearInterval(ui.reveal); ui.reveal = null; $("reveal").textContent = "Show why"; render(); } }
-
-$("reveal").onclick = () => {
-  const art = ui.art;
-  if (!art || !art.reveal) return;
-  if (ui.reveal) return stopReveal();
-  const note = $("reveal-note");
-  note.hidden = false;
-  const rv = art.reveal;
-  if (rv.check) {
-    let t = 0;
-    note.textContent = rv.check.caption;
-    $("reveal").textContent = "Stop";
-    const tick = () => { drawMaze(t); t = (t + 1) % rv.cycle; };
-    tick();
-    ui.reveal = setInterval(tick, 700);
-  } else if (rv.winningMoves) {
-    note.textContent = `A way out in ${rv.winningMoves.length} moves, replayed by the Lean runtime. Lean's kernel replayed the same moves to prove the level can be won.`;
-    replay(rv.winningMoves);
-  }
-};
-
-async function replay(moves) {
-  await act("reset");
-  $("reveal").textContent = "Stop";
-  let i = 0;
-  ui.reveal = setInterval(async () => {
-    if (i >= moves.length) return stopReveal();
-    const m = moves[i++];
-    const saved = ui.reveal; ui.reveal = null;  // let act() run
-    await act(m);
-    ui.reveal = saved;
-  }, 260);
-}
-
-document.addEventListener("keydown", (e) => {
-  if (["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName)) return;
-  if (e.key === "r" || e.key === "R") { $("overlay").hidden = true; act("reset"); return; }
-  const m = DIRS[e.key];
-  if (m) { e.preventDefault(); act(m); }
-});
 
 // ---------- making levels ----------
 async function loadStatus() {
@@ -340,4 +199,4 @@ async function pollJob(id) {
 
 function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]); }
 
-loadStatus().then(() => loadLevels()).catch((e) => showOverlay("Server unavailable", e.message));
+loadStatus().then(() => loadLevels()).catch((e) => { $("gen-note").textContent = `Server unavailable: ${e.message}`; });

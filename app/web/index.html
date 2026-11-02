@@ -10,6 +10,11 @@
   <header class="bar">
     <span class="mark">Backrooms</span>
     <span class="bar-note">Every level ships with a Lean proof of what it claims.</span>
+    <span class="bar-gap"></span>
+    <select id="level" aria-label="Level"></select>
+    <span class="tag" id="kind"></span>
+    <button id="to-roblox">Play in Roblox</button>
+    <span class="note" id="roblox-note" aria-live="polite"></span>
   </header>
 
   <main class="work">
@@ -40,37 +45,6 @@
       </div>
     </section>
 
-    <section class="play" aria-label="Game">
-      <div class="play-head">
-        <select id="level" aria-label="Level"></select>
-        <span class="tag" id="kind"></span>
-        <span class="note" id="moves"></span>
-        <button id="to-roblox" class="quiet">Play in Roblox</button>
-        <span class="note" id="roblox-note" aria-live="polite"></span>
-      </div>
-
-      <div class="board-wrap">
-        <canvas id="board" width="640" height="480" tabindex="0" aria-label="Maze. Arrow keys move, space waits, R restarts."></canvas>
-        <div id="overlay" class="overlay" hidden></div>
-      </div>
-
-      <div class="keys">
-        <span><kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> move</span>
-        <span><kbd>Space</kbd> wait</span>
-        <span><kbd>R</kbd> restart</span>
-        <span class="note" id="status-text"></span>
-      </div>
-
-      <div class="claim" id="claim" hidden>
-        <p class="claim-text" id="claim-text"></p>
-        <p class="note" id="claim-scope"></p>
-        <div class="claim-actions">
-          <button id="reveal">Show why</button>
-          <span class="note" id="claim-who"></span>
-        </div>
-        <p class="reveal-note" id="reveal-note" hidden></p>
-      </div>
-    </section>
   </main>
   <dialog id="safety" class="safety" aria-label="Upload safety: the Lean code, specs, and proofs">
     <div class="safety-head">
