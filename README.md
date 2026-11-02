@@ -1,30 +1,20 @@
 # Rigged Arcade
 
-**Every level ships with a proof. Some are fair. Some are rigged. Lean knows which.**
+**You are lost in the Backrooms. Find the exit before the watchers find you.**
 
-Write what you want to be true about a maze, in Lean. Say who should chase
-you. An AI model builds the level, Lean proves your statement about the exact
-level you play, and you walk it in first person in Roblox Studio, or on the
-web page.
+Endless yellow halls. Humming lights. Damp carpet. Somewhere there is a way
+out, and something is walking the halls between you and it.
 
-- **You write the rules.** "Nobody can win this, but it looks winnable."
-  "Three watchers, no gems, and you never die at spawn." Any Lean statement
-  about the maze is a valid request.
-- **An AI model designs the level.** It fills in the maze template: the board,
-  the walls, the exit, and each watcher's patrol.
-- **Lean decides whether it ships.** A level is published only when
-  `lake comparator` accepts the proof. 20 theorems about the game itself are
-  judged the same way (see "What is proved").
-- **You play it in Roblox.** Press **Play in Roblox** on the web page, and the
-  level opens in Roblox Studio, ready to walk. The Lean runtime decides every
-  step you take; Roblox only draws it.
-- **Then press Show why.** The lights cut out, and the cells that pass Lean's
-  region check glow, turn by turn. Until a watcher catches you, you are always
-  on a glowing cell, and the exit never glows.
+Some rooms can be escaped. Some are rigged: whatever you do, you never get
+out. Every room comes with a Lean proof that says which one you are in.
 
-## Make it yours
+Lost again? Press **Show why**. The lights die, and the tiles that pass
+Lean's region check glow, turn by turn. Until a watcher catches you, you are
+always on a glowing tile, and the exit never glows.
 
-Three comment lines give your level its cast and its set:
+## Build your own nightmare
+
+Write the rules of a room in Lean, and pick who hunts you:
 
 ```lean
 import Maze.Spec
@@ -33,8 +23,8 @@ import Maze.Spec
 -- floor: burger every tile
 -- decor: office chair, filing cabinet, water cooler
 
-/-! Nobody can win. Three watchers, no gems, and a safe start: no watcher
-starts on or next to you, and you can stay alive for at least 6 moves. -/
+/-! No way out. Three watchers, and a safe start: none of them starts
+next to you, and you can survive at least 6 moves. -/
 def UserSpec.requirement (v : Maze.Variant) : Prop :=
   Maze.Unwinnable v ∧
   v.guards.length = 3 ∧
@@ -43,53 +33,30 @@ def UserSpec.requirement (v : Maze.Variant) : Prop :=
   ∃ moves : List Maze.Move, moves.length = 6 ∧ (Maze.run v moves).status = .playing
 ```
 
-- `watcher:` gives each watcher a character, in order.
-- `floor:` lays a prop on the floor: `every tile`, or `every 3 tiles`.
-- `decor:` stands props along the walls.
+An AI model builds the room. Lean proves your rules hold for that exact room.
+Then press **Play in Roblox** and walk it in first person, with Subaru, Bernie
+and Jon on patrol and burgers on every tile. Every character and prop comes
+from the Roblox Creator Store, and each one passes a Lean-proved safety gate
+before it enters the room.
 
-The names are Roblox Creator Store models. The dress step, or an agent driving
-Studio, finds each one, strips it, checks it, and caches it in the open place.
-Lean ignores comments, so the cast never changes what is proved: a Bernie
-Sanders watcher walks exactly the route Lean checked.
+## Built by agents, inside Roblox Studio
 
-Every model passes the **decor gate** before it enters the scene. The gate is a
-Lean program, and 11 of the 20 judged theorems are its safety properties: no
-scripts, no sounds, no lights, every part anchored and inert, inside its box,
-and the same answer whatever the parts are named.
-
-## Built with agents in Roblox Studio
-
-Roblox Studio has an MCP server, and this project's agents use it directly.
-Through it, an agent searches the Creator Store, inserts a model, deletes every
-script in it, fits it to its box, sends its instance tree to the Lean decor
-gate, and keeps it only if the gate says yes. The same agents press Play, type
-keys, click buttons, read the Output, and take screenshots. That is how the
-Roblox place was tested while it was built: agents played the level list, the
-claim panel, a walk until a watcher caught them, restart, Show why, and a
-coordinator restart in Studio, and fixed what broke. Rojo live sync carried
-each fix into the open place.
+Our agents drive Roblox Studio directly through its MCP server. They find the
+characters on the Creator Store, strip out every script, run the safety gate,
+and dress the room while you watch. They also play-tested the game in
+Studio as it was built.
 
 ## Run it
 
 ```sh
 make install && make run      # then open http://127.0.0.1:8642
+make roblox                   # build the Roblox place, then open it in Studio
 ```
 
-`make install` gets Lean through [elan](https://github.com/leanprover/elan)
-if needed, builds the game and every proof, and installs the Claude Agent
-SDK into `.venv`. The shipped levels play without any keys or network.
-Live generation also needs Linux with `bubblewrap` (the proof sandbox) and
-`ANTHROPIC_API_KEY`; the page shows whether both are ready. On Windows, run
-it inside WSL.
-
-The maze also plays inside Roblox Studio as a first-person Backrooms-style
-game (see "Play it in Roblox Studio" below). The web page stays the main way
-to run it.
-
-To let Codex design levels instead (`gpt-6.1-sol`, `ultrafast` speed when your
-login offers it): `uv pip install --python .venv/bin/python openai-codex`, log in
-once with `.venv/lib/python3.12/site-packages/codex_cli_bin/bin/codex login`, then
-`RIGGED_BACKEND=codex make run`.
+Runs on Linux or WSL. Making new rooms also needs `bubblewrap` and
+`ANTHROPIC_API_KEY`. The shipped rooms play without either.
+To let Codex build rooms instead: `uv pip install --python .venv/bin/python
+openai-codex`, log in once with its `codex login`, then `RIGGED_BACKEND=codex make run`.
 
 ## How it works
 
