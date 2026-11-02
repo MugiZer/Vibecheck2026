@@ -37,7 +37,7 @@ select, input[type=text] {
 
 /* Code on the left, game on the right; each code pane scrolls by itself. */
 .work { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); height: calc(100vh - 50px); }
-.code { display: grid; grid-template-rows: minmax(0, 2fr) minmax(0, 3fr); border-right: 1px solid var(--line); min-height: 0; }
+.code { display: grid; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); border-right: 1px solid var(--line); min-height: 0; }
 .pane { display: flex; flex-direction: column; min-height: 0; padding: .9rem 1.2rem; }
 .pane + .pane { border-top: 1px solid var(--line); }
 .pane-head { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; margin-bottom: .6rem; }
