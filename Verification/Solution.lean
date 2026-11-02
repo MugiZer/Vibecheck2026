@@ -1,4 +1,5 @@
 import Maze
+import MazeRuntime.Replay
 import UploadSpec.Proofs
 import DecorSpec.Proofs
 
@@ -67,3 +68,71 @@ theorem maze_never_leaves_regions (v : Maze.Variant) (cells : List (List Nat))
   have hbit := hin.2.2
   rw [key, Maze.testBit_maskOfList] at hbit
   exact hbit
+
+/-- `mapM` in `Except` succeeds with `r` exactly when each element succeeds
+with the matching element of `r`. -/
+theorem mapM_eq_ok {α β ε : Type} (f : α → Except ε β) (g : α → Option β)
+    (hfg : ∀ a b, f a = .ok b ↔ g a = some b) :
+    ∀ (l : List α) (r : List β), l.mapM f = .ok r ↔ l.map g = r.map some
+  | [], r => by
+    cases r <;> simp [List.mapM_nil, pure, Except.pure]
+  | a :: l, r => by
+    rw [List.mapM_cons]
+    have ih := mapM_eq_ok f g hfg l
+    cases hfa : f a with
+    | error e =>
+      have hg : ∀ b, g a ≠ some b := fun b h => by have := (hfg a b).mpr h; rw [hfa] at this; cases this
+      cases r with
+      | nil => simp [bind, Except.bind]
+      | cons c cs =>
+        simp only [bind, Except.bind, List.map_cons, List.cons.injEq, reduceCtorEq, false_iff]
+        exact fun ⟨h, _⟩ => hg c h
+    | ok b =>
+      have hgb := (hfg a b).mp hfa
+      cases hl : l.mapM f with
+      | error e =>
+        cases r with
+        | nil => simp [bind, Except.bind]
+        | cons c cs =>
+          simp only [bind, Except.bind, List.map_cons, List.cons.injEq, reduceCtorEq, false_iff]
+          rintro ⟨-, h⟩
+          have := (ih cs).mpr h
+          rw [hl] at this; cases this
+      | ok bs =>
+        have hbs := (ih bs).mp hl
+        cases r with
+        | nil => simp [bind, Except.bind, pure, Except.pure]
+        | cons c cs =>
+          simp only [bind, Except.bind, pure, Except.pure, Except.ok.injEq, List.cons.injEq,
+            List.map_cons, hgb, Option.some.injEq]
+          constructor
+          · rintro ⟨rfl, rfl⟩; exact ⟨rfl, hbs⟩
+          · rintro ⟨rfl, h⟩
+            refine ⟨rfl, ?_⟩
+            have h2 := (ih cs).mpr h
+            rw [hl] at h2; cases h2; rfl
+
+/-- Maze: when the game process replays a list of move names, it accepts the
+list exactly when every name is a move, and then it returns the state that
+`Maze.run` gives for those moves, in that order. A list with any other name is
+refused. -/
+theorem maze_runtime_replays_with_run (v : Maze.Variant) (names : List String) (s : Maze.State) :
+    MazeRuntime.replayMoves v names = .ok s ↔
+      ∃ moves : List Maze.Move,
+        names.map MazeRuntime.Move.ofString? = moves.map some ∧ s = Maze.run v moves := by
+  have key := mapM_eq_ok MazeRuntime.readMove MazeRuntime.Move.ofString? (by
+    intro n m
+    unfold MazeRuntime.readMove
+    cases MazeRuntime.Move.ofString? n <;>
+      simp [pure, Except.pure, throw, throwThe, MonadExceptOf.throw])
+  simp only [MazeRuntime.replayMoves, bind, Except.bind]
+  constructor
+  · intro h
+    split at h
+    · cases h
+    · rename_i moves hm
+      cases h
+      exact ⟨moves, (key names moves).mp hm, rfl⟩
+  · rintro ⟨moves, hmap, rfl⟩
+    rw [(key names moves).mpr hmap]
+    rfl

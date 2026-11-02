@@ -27,10 +27,7 @@ def handle (req : Json) : Except String Json := do
   match op with
   | "replay" =>
     let names ← req.getObjValAs? (List String) "moves"
-    let moves ← names.mapM fun n => match Move.ofString? n with
-      | some m => pure m
-      | none => throw s!"unknown move {n}"
-    return stateJson v (run v moves)
+    return stateJson v (← replayMoves v names)
   | "solve" => return solveJson v
   | "drawing" => return drawingJson v
   | "lean" =>

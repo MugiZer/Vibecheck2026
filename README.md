@@ -159,8 +159,10 @@ Check by hand after a change:
 
 The rules are executable Lean, and the same functions are what the game runs.
 
-- Maze: each move you make is replayed with `Maze.run`, the function the
-  theorems are about. The browser holds no rules; it draws the state the
+- Maze: the game process reads the move names with `MazeRuntime.replayMoves`,
+  and `maze_runtime_replays_with_run` proves that it then answers with
+  `Maze.run` of those moves, the function the other theorems are about. It
+  refuses any other name. The browser holds no rules; it draws the state the
   runtime returns.
 
 Neither renderer decides a move, a win, or a level: not the browser, and not
@@ -178,6 +180,7 @@ Repository theorems, judged by `lake comparator` (see `Verification/`):
 | `maze_regions_sound` | For every maze and every certificate: if the certificate passes `checkRegions`, no list of moves of any length wins. |
 | `maze_isOpen_iff` | The fast bit test for open cells means "on the board and not a wall". |
 | `maze_never_leaves_regions` | For every maze and every list of painted cells (one list per turn of the guards' cycle): if the lists pass `checkRegions`, then after any moves, while the game is on, you stand on a painted cell of the current turn. Show why paints lists like these; each time a level opens, the runtime runs `checkRegions` on the lists it paints. |
+| `maze_runtime_replays_with_run` | The maze game process accepts a list of move names exactly when every name is a move, and then it answers with `Maze.run` of those moves. It refuses any other name. |
 | `upload_ignores_client_name` | The file name a client sends never changes where its upload is stored. |
 | `upload_fixed_shape` | Every stored path is `uploads/<32 lowercase hex digits>/UserSpec.lean`, so it cannot leave `uploads/`. |
 | `upload_never_over_limit` | The bytes the gate lets through never add up to more than the limit, for any chunking. |
@@ -211,7 +214,7 @@ Each spec file comes with concrete examples that meet its hypotheses and
 examples of bad behaviour it rejects (`Specs/UploadSpec/Proofs.lean`), and
 `make verify` lists the definitions each main theorem depends on, which is
 the surface to review: `templates/maze/Maze/Game.lean` and `Spec.lean`,
-`app/upload/Upload/Store.lean`,
+`templates/maze/MazeRuntime/Replay.lean`, `app/upload/Upload/Store.lean`,
 `Specs/UploadSpec/`.
 
 ## What is trusted
@@ -223,10 +226,11 @@ the surface to review: `templates/maze/Maze/Game.lean` and `Spec.lean`,
   for example "caught" means a guard lands on your cell or you swap cells.
 - **The Lean compiler, while you play.** The running game is compiled code of
   the proved functions. The kernel checked the theorems about those functions.
-- **Not proved:** the JSON adapters, the Python coordinator, HTTP, the browser
-  drawing, the Roblox place (next bullets), and the upload gate's
-  file-system calls and read loop (which calls
-  the proved `Upload.admit` before writing each chunk of at most 64 KiB).
+- **Not proved:** the JSON adapters; the line in the maze process that passes
+  the request's names to `replayMoves`; the Python coordinator, HTTP, the
+  browser drawing, the Roblox place (next bullets), and the upload gate's
+  file-system calls and read loop (which calls the proved `Upload.admit`
+  before writing each chunk of at most 64 KiB).
   The runtime's compiled `checkRegions` checks Show why's glowing cells each
   time a level is opened. The caption beside them comes from the coordinator
   (`reveal.check.caption`).
