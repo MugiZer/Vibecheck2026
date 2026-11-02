@@ -432,6 +432,29 @@ function Scene.build(detail, state)
 	Scene.update(state)
 
 	local props = placeProps(decorFolder, detail, levelDecor, isWall)
+	-- Floor props the brief asks for ("floor: <name> every <n> tiles", n from 2 to 9): a checked clone of
+	-- PropCache[<name>] lying on every open cell whose index is a multiple of n, but not the start or the
+	-- exit. Visual only, like all decor; the name is only ever a folder name.
+	local floorName, every = string.match(string.lower(tostring(detail.brief or "")), "floor:%s*([^;%.\n]-)%s+every%s+(%d)%s+tiles")
+	local step = tonumber(every)
+	if floorName and step and step >= 2 and step <= 9 then
+		local cache = dress and dress:FindFirstChild("PropCache")
+		local source = cache and cache:FindFirstChild(floorName)
+		local placedFloor = 0
+		local v = detail.variant
+		for c = 0, v.width * v.height - 1, step do
+			if source and not isWall[c] and c ~= v.start and c ~= v.exit and placedFloor < 60 then
+				local clone = checkedClone(source)
+				if clone then
+					inert(clone)
+					clone:PivotTo(CFrame.new(Grid.toWorld(v.width, c) + Vector3.new(0, 0.75, 0)))
+					clone.Parent = decorFolder
+					placedFloor += 1
+				end
+			end
+		end
+		print(("[decor] floor %s every %d: %d placed"):format(floorName, step, placedFloor))
+	end
 	local look = table.concat(used, ",") -- each watcher's look, in order
 	print(("[decor] placed %d props, watcher look %s"):format(props, look))
 
