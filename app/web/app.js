@@ -282,8 +282,10 @@ $("make").onsubmit = async (e) => {
   const req = { template: "maze", brief: $("brief").value };
   // A "-- watcher: <name>" line in the spec picks the watchers' look. Lean ignores comments, so it
   // is not part of what is proved; it only joins the brief, which the dress step reads.
-  const look = /^--\s*watcher:\s*(.+)$/im.exec(specText());
-  if (look && !/watcher:/i.test(req.brief)) req.brief = `${req.brief.trim()}${req.brief.trim() ? "; " : ""}watcher: ${look[1].trim()}`;
+  for (const key of ["watcher", "decor"]) {  // "-- watcher: ..." and "-- decor: ..." lines in the spec
+    const line = new RegExp(`^--\\s*${key}:\\s*(.+)$`, "im").exec(specText());
+    if (line && !new RegExp(`${key}:`, "i").test(req.brief)) req.brief = `${req.brief.trim()}${req.brief.trim() ? "; " : ""}${key}: ${line[1].trim()}`;
+  }
   const pick = $("spec-pick").value;
   $("generate").disabled = true;
   $("gen-note").className = "note";
