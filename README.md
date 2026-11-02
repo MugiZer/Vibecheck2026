@@ -1,85 +1,242 @@
 # blox
 
-blox is about making games with rules you can prove. You bring an idea for a
-world and decide what has to be true inside it. An agent works on the level
-and its proof, and Lean checks that the result follows the rules you asked for.
+blox is a system for building playable games from formal specifications. You
+describe the experience you want, define what must be true in Lean, and let
+agents build a candidate and write its proof. We built a harness that connects
+that process to Roblox Studio, so you can play the result under the same
+rules that were checked.
 
-In a horror game, you can make "no way out" something you actually prove.
-Give the player a safe start, space to move, and an exit they can see, then
-prove that no sequence of moves will ever get them there. Or make a room
-they can escape, with a route to back it up.
+You can ask for a puzzle with a guaranteed solution, then change its layout
+and cast while keeping that guarantee. Or deliberately build an impossible
+level and let players see why it cannot be won.
 
-> **Come find me and I'll show you live.** Right now, I'm the only person who
-> can run the complete walkthrough, because the tools and Studio assets are
-> configured on my machine. You can inspect the code and play the browser
-> examples from this repo, but you won't see the whole experience that way.
-> Bring an idea for a room, or someone ridiculous you want chasing you.
+> **Come find me and I'll show you live.** Right now, I'm the only person with
+> the complete setup configured: Roblox Studio, the local Lean runtime, the
+> generation tools, and the prepared assets. You can inspect the code and run
+> the browser examples from this repo, but those show only part of the
+> experience. Bring a game idea or a rule you'd like to test.
 
-## What we're making right now
+## Start with the rules
 
-We start from one Backrooms-style maze template and make variations of it.
-The movement rules and proof tools stay fixed. The agent changes the layout,
-the exit, the watchers' patrol routes, and the look of the room to fit a new
-requirement and creative brief.
+A game template supplies executable rules: what the state contains, what a
+player can do, and how an action changes that state. A formal specification
+adds the properties a generated version must satisfy. In this project, that
+specification is a Lean file defining `UserSpec.requirement` over the
+selected template's `Variant` type.
 
-You walk through yellow office corridors in Roblox, under humming lights,
-with watchers somewhere between you and the exit. Everything advances one
-turn at a time, even in the first-person view. Some rooms are escapable;
-others are deliberately impossible under those same rules.
+The current build uses one maze template; each generated variation gets its
+own proof.
 
-A brief can be as odd as:
+For example, this [sample requirement](samples/maze/winnable.lean) asks for a
+level with a way to win, at least two gems, and at least two guards:
 
-> Give me three watchers: Subaru Natsuki, Bernie Sanders and Jon Snow.
-> Put burgers on the floor. Make escape impossible, but give me a safe
-> start and at least one way to survive six moves.
+```lean
+import Maze.Spec
 
-The watcher names and burgers guide the art. The Lean requirement handles
-the watcher count, safe start, six survivable moves, and impossible escape.
-Keeping the game template fixed gives us room to try these combinations
-while checking each new layout against its own requirements.
+def UserSpec.requirement (v : Maze.Variant) : Prop :=
+  Maze.Winnable v ∧ 2 ≤ v.gems.length ∧ 2 ≤ v.guards.length
+```
 
-## See why you couldn't escape
+The agent can choose the layout and patrol routes, but the finished
+variation has to satisfy that statement. The template also supplies base
+checks for valid data and playability. For this template, those include a
+route to the exit with guards removed and a safe first step to another cell.
 
-Press **Show why** in an impossible room. The lights go out, the camera rises,
-and the checked regions of the maze glow, one watcher turn at a time. As long
-as you're still playing, you can only be on a glowing tile for that turn.
-The exit never glows.
+A separate creative brief describes how the game should look and feel.
+Character names, props, colors, and atmosphere guide the presentation.
+Only the properties stated in Lean are part of the proof.
 
-Those regions come from the level's certificate, which the runtime checks
-when the room opens. In an escapable room, Show why replays a winning route.
-You can try the room yourself, then see the explanation in the space you've
-just been walking through.
+## The harness we built
 
-## How a room gets made
+Our Python harness runs the work between a request and a playable result.
+It accepts the specification, gives the agent tools to try candidates,
+collects proof diagnostics, controls retries, and saves accepted results.
+It also manages the sessions that connect Roblox and the browser to the
+Lean runtime.
 
-1. You provide a creative brief and a Lean file defining
-   `UserSpec.requirement : Maze.Variant → Prop`. The brief describes the room;
-   the Lean file says exactly what must hold.
-2. The agent proposes a variation of the maze template. It tries the level
-   against the Lean runtime, gets feedback, and writes a proof for that
-   particular level.
-3. The judge builds the submission in a Linux sandbox and runs
-   `lake comparator` against a challenge written by the coordinator. The
-   proof must establish that the maze is well formed, meets the template's
-   playability conditions, and satisfies your requirement.
-4. Only an accepted level enters the local collection. It includes the
-   requirement, level, proof, judge log, and hashes. You can open it in the
-   browser or the connected Roblox Studio place.
+We expose the generation tools through a dedicated MCP server:
 
-The same Lean rules used in the proof drive play. The browser and Roblox
-send moves to the coordinator and draw the state returned by the Lean
-runtime. Before a session starts, the coordinator checks that the loaded
-level matches the judged candidate and uses the current template.
+```mermaid
+flowchart TD
+    Spec["Formal spec and fixed game template"] --> Agent["Generation agent"]
+    Brief["Creative brief"] --> Agent
+    Agent -->|try_level| Runtime["Lean runtime"]
+    Runtime -->|Checks and proof hints| Agent
+    Agent -->|submit| Judge["Harness and Comparator"]
+    Spec --> Judge
+    Judge -->|Diagnostics| Agent
+    Judge -->|Accepted| Result["Playable artifact with proof"]
+```
 
-Agents also use Roblox Studio's MCP connection to prepare the scene. In
-Studio's Edit mode, they can find Creator Store models, strip scripts, and
-check the reported model trees with the Lean decor gate before adding them.
-The artwork gives each room its character; movement and escape still follow
-the checked maze rules.
+| Tool | What the agent gets back |
+| --- | --- |
+| `try_level` | Checks a proposed variation with the Lean runtime and returns problems, search results, and proof hints. It also flags an already published variation. |
+| `submit` | Sends the candidate, presentation data, and complete `Solution.lean` to the judge. A failed attempt returns diagnostics; an accepted attempt creates the playable artifact. |
 
-Generation runs one job at a time, with time and cost limits. A request can
-run out of budget or fail to produce an accepted level. A failed search does
-not prove that the request is impossible.
+[app/agent.py](app/agent.py) connects these tools to either Claude Agent SDK
+or Codex. The generation agent receives the template guide, the requirement,
+and the creative brief. The agent submits data and a proof; the harness
+supplies the fixed template and writes the challenge it must satisfy.
+
+The harness runs one generation job at a time, with configurable limits on
+attempts, time, and model cost. It feeds errors back into the next attempt
+and stops on acceptance, cancellation, or an exhausted budget. If no
+candidate passes, the result stays unresolved. Failing to find a proof does
+not establish that a specification is impossible.
+
+### From a candidate to a checked game
+
+1. The harness accepts a reviewed sample or an uploaded Lean file. Uploads
+   pass through the compiled Lean upload gate, which controls the destination
+   and byte limit. The harness then compiles the requirement in a
+   `bubblewrap` sandbox and checks its type.
+2. The agent submits candidate data. A template adapter turns that data into
+   the representation the runtime understands. For the current template,
+   `map` and `guards` become a `Maze.Variant`. The Lean runtime prints that
+   exact value into `Candidate.lean`.
+3. The harness writes the challenge for the candidate. The agent supplies
+   the proof in `Solution.lean`. For the current template, the required
+   statement is:
+
+   ```lean
+   Maze.WellFormed Candidate.variant ∧
+   Maze.Playable Candidate.variant ∧
+   UserSpec.requirement Candidate.variant
+   ```
+
+4. The proposed proof first builds in an isolated sandbox for diagnostics.
+   The judge then runs `lake comparator` in a fresh project copy against
+   the harness's challenge and permitted axioms. A build alone is not
+   acceptance.
+5. After Comparator accepts, the harness saves a self-contained project with
+   the template sources, toolchain, candidate, requirement, challenge, proof,
+   judge log, and a manifest of hashes. Generated results go into
+   `artifacts/`; shipped results live in [examples/](examples/). Each can be
+   checked again with `lake comparator`.
+
+The code that makes these decisions is in [app/verify.py](app/verify.py).
+The agent's success message has no role in accepting a candidate.
+
+## How Roblox talks to Lean
+
+Roblox handles player input, the camera, the scene, and the HUD. Lean
+computes the game state. The bridge between them is the local Python
+coordinator and Roblox's `HttpService`.
+
+Proof checking happens when a candidate is submitted. During play, compiled
+Lean functions execute the rules that the proof refers to. For the current
+turn-based template, a move makes this round trip:
+
+```mermaid
+sequenceDiagram
+    participant Client as Roblox client
+    participant Server as Roblox server
+    participant Harness as Python coordinator
+    participant Lean as Lean runtime
+    Client->>Server: Step or wait
+    Server->>Harness: HTTP action and sequence number
+    Harness->>Lean: Candidate and complete move history
+    Lean->>Lean: Replay through Maze.run
+    Lean-->>Harness: JSON game state
+    Harness-->>Server: State and new sequence number
+    Server->>Server: Update scene and player position
+    Server-->>Client: Update camera and HUD
+```
+
+The client turns an input into a symbolic move such as `"up"` or `"stay"`
+and invokes the Roblox server. The server posts it to
+`/api/sessions/<id>/act`. The coordinator checks the sequence number,
+appends the action to the session history, and sends one JSON request to the
+long-running `maze serve` process.
+
+Inside Lean, `MazeRuntime.replayMoves` reads the move names and calls
+`Maze.run` from the initial state. Unknown move names are rejected. The
+result includes the player's position, turn, collected items, guard
+positions, and game status. Roblox uses those returned values to update
+the world and place the player.
+
+Replaying the full history gives each runtime request all the information
+it needs. The coordinator can restart the process and replay the request
+because the variant and move history fully determine the state. Sequence
+checks reject stale actions; restarting a game clears its move history.
+Camera turns and map toggles remain local presentation changes.
+
+Before opening a session, the coordinator checks the artifact's template
+hash and asks the runtime to print the loaded candidate as Lean source.
+That source must hash to the judged `Candidate.lean`. This connects the
+selected game data to the accepted proof; the compiler and bridge remain
+part of the trusted implementation.
+
+The browser uses the same coordinator and Lean rules. Its **Play in Roblox**
+button sends the selected artifact to `/api/roblox/play`; the open Studio
+place polls that endpoint and starts the selected level.
+
+The main pieces are [the Roblox server bridge](roblox/src/server/Main.server.luau),
+[the coordinator](app/server.py), [the Lean process](templates/maze/MazeMain.lean),
+and [the proved replay function](templates/maze/MazeRuntime/Replay.lean).
+
+## How we use Roblox Studio MCP
+
+Studio MCP gives our tooling access to the open Roblox Studio project while
+we prepare the game. We use it to find assets, insert them, run Luau, and
+inspect the resulting scene. This is a separate connection from the HTTP
+bridge used during play.
+
+[app/studio.py](app/studio.py) starts a local launcher for Roblox's Studio
+MCP and speaks JSON-RPC over standard input and output. It initializes the
+connection and calls Studio tools. [app/dress.py](app/dress.py) uses that
+adapter to carry out the scene preparation:
+
+1. `list_roblox_studios` locates the open place, and `get_studio_state`
+   confirms that it is in Edit mode.
+2. `search_asset` finds Creator Store models for the brief, or the preparation
+   step uses asset selections from the level's `decor.json`. `insert_asset`
+   brings the models into `ServerStorage.DressPool`.
+3. `execute_luau` strips scripts and disallowed instances, anchors parts,
+   disables collisions, touch events, and queries, and fits models into
+   their allotted space. It also describes each model's tree as JSON.
+4. [app/decor_gate.py](app/decor_gate.py) sends that description to the
+   compiled Lean decor gate. Accepted models receive a checked node count;
+   rejected models are removed.
+5. A final sweep checks the prepared pool for disallowed instances before
+   it is used by the scene.
+
+This gives us another concrete Roblox-to-Lean path: inspect an asset in
+Studio, pass its description to a Lean decision procedure, and use the
+answer to decide whether to keep it. The gate's proofs cover that decision
+on the reported tree. Studio's reporting code and the actual asset identity
+remain trusted.
+
+The generation harness's `try_level` and `submit` tools and Roblox's Studio
+MCP have different jobs. The first pair develops and checks the candidate;
+the Studio tools prepare its visual world. Scene preparation currently runs
+as a separate step in Edit mode. It is not automatically part of every
+generation turn.
+
+Keeping imported art inert lets us change a game's appearance while its
+movement and win conditions continue to come from Lean. The renderer can
+use a different cast or set of props without changing the checked rules.
+
+## Applying the idea to other games
+
+The broader goal is to use this process for any game whose relevant rules
+can be expressed in Lean. In the current template, generation changes the
+layout, item placement, patrols, and presentation while keeping the
+underlying game rules fixed.
+
+A new kind of game needs its own executable rules and `Variant` type,
+readable specification predicates, and proof support. It also needs an
+adapter for candidate data and a renderer that can display its states and
+send its actions. The template registry in [app/verify.py](app/verify.py)
+and the adapters in [app/templates.py](app/templates.py) provide the places
+to connect those pieces to the harness. Both currently register `maze`.
+
+The current game also makes part of the proof visible through **Show why**.
+For a winning level, it replays a route. For an impossible level, it shows
+checked regions that contain every surviving player position while
+excluding the exit. The runtime checks those regions when the level opens.
+That is one way to make a formal guarantee something a player can understand
+inside the game.
 
 ## What Lean checks
 
@@ -88,7 +245,7 @@ asset gates. The statements and their definitions are available in the repo.
 
 | Part | What is checked | Where to read it |
 | --- | --- | --- |
-| Each accepted room | The level is well formed, has a route to the exit with watchers removed, offers a safe first step to another cell, and satisfies the uploaded requirement. An unwinnable requirement rules out every winning move list, of any length. A winnable requirement supplies a winning route. | [Maze specs](templates/maze/Maze/Spec.lean), [sample requirements](samples/maze/), [shipped proofs](examples/) |
+| Each accepted variation | The level is well formed, has a route to the exit with watchers removed, offers a safe first step to another cell, and satisfies the uploaded requirement. An unwinnable requirement rules out every winning move list, of any length. A winnable requirement supplies a winning route. | [Maze specs](templates/maze/Maze/Spec.lean), [sample requirements](samples/maze/), [shipped proofs](examples/) |
 | Gameplay and Show why | Recognized move names replay through `Maze.run`. The region checker is sound: if a certificate passes, escape is impossible, and a player still in the game stays inside the checked region for the current turn. | [Replay](templates/maze/MazeRuntime/Replay.lean), [certificate checker](templates/maze/Maze/Cert.lean) |
 | Upload decisions | Client filenames do not affect the destination. Paths have the fixed shape `uploads/<32 lowercase hex digits>/UserSpec.lean`. The byte limit is exact for any chunking, and accepted uploads pass every chunk through in order. The app uses a 64 KiB limit. | [Upload specs and proofs](Specs/UploadSpec/), [upload implementation](app/upload/) |
 | Decor decisions | An accepted model tree uses allowed classes, stays within size and depth limits, and has inert parts inside the slot box. The gate also checks asset IDs. | [Decor specs and proofs](Specs/DecorSpec/), [decor implementation](app/decor/) |
@@ -98,34 +255,11 @@ The repository's theorem list is in
 prints the axioms and definitions behind the main statements, then runs
 Comparator. The judge rejects `sorry`, `native_decide`, and added axioms.
 
-<details>
-<summary>The Lean requirement for the three-watcher room</summary>
-
-The comment lines guide the visual brief. The proposition below them is what
-the generated room must prove.
-
-```lean
-import Maze.Spec
-
--- watcher: Subaru Natsuki, Bernie Sanders, Jon Snow
--- floor: burger every tile
--- decor: office chair, filing cabinet, water cooler
-
-def UserSpec.requirement (v : Maze.Variant) : Prop :=
-  Maze.Unwinnable v ∧
-  v.guards.length = 3 ∧
-  v.gems = [] ∧
-  (∀ route ∈ v.guards, Maze.nextToOrSame v v.start (Maze.guardAt route 0) = false) ∧
-  ∃ moves : List Maze.Move, moves.length = 6 ∧ (Maze.run v moves).status = .playing
-```
-
-</details>
-
 ### What is trusted
 
-The proof means what its definitions say. Here, being caught means a watcher
-lands on your cell or you swap cells with one. The maze is turn based; the
-claims concern those rules. Appearance, fun, character likenesses, and human
+The proof means what its definitions say. In the current template, being
+caught means a guard lands on your cell or you swap cells with one. The
+claims concern those turn-based rules. Appearance, fun, character likenesses, and human
 reaction time are outside those claims. For an uploaded requirement, the app
 shows the requirement itself; it reserves the familiar room labels for the
 reviewed samples.
@@ -161,12 +295,12 @@ the upload boundary in more detail.
 
 There is a fair amount to install for the full setup. The browser examples
 are the easiest part to run locally. The live walkthrough also needs Roblox
-Studio, the generation tools, and the local connection between them.
+Studio, the generation tools, and the local connections between them.
 
 | What you want to run | What you need |
 | --- | --- |
 | Browser and shipped rooms | Linux or WSL, `make`, `curl`, Python 3, and Lean. `make install` installs Lean through elan if needed and builds the game with the pinned toolchain. |
-| New room generation | `bubblewrap`, a Python environment with the Claude Agent SDK, and `ANTHROPIC_API_KEY`. `make install` attempts to set up the environment through `uv` or Python's `venv` and pip. |
+| Generating new variations | `bubblewrap`, a Python environment with the Claude Agent SDK, and `ANTHROPIC_API_KEY`. `make install` attempts to set up the environment through `uv` or Python's `venv` and pip. |
 | Roblox view | Roblox Studio on Windows, with the coordinator running in WSL. `make roblox` downloads the pinned Rojo and selene tools and the Rojo plugin into `.tools/`, checking their SHA-256 hashes. |
 | Creator Store art and dressing | Roblox's Studio MCP, a configured local launcher, access to the assets, and Studio open in Edit mode. The launcher script is not included in the repo; its path is `LAUNCHER` in [app/studio.py](app/studio.py). |
 
@@ -251,7 +385,7 @@ and connect through **Plugins > Rojo** on `localhost:34872`.
 Built for the Vibecheck hackathon. [RULES.md](RULES.md) describes the judging
 criteria, and [CLAUDE.md](CLAUDE.md) records the verification guidelines.
 [ARCHITECTURE.md](ARCHITECTURE.md) preserves the design history; the current
-implementation is the maze workflow described here.
+implementation follows the template workflow described here.
 
 ## Art credits
 
