@@ -93,7 +93,7 @@ def shown_levels():
     newest = {}
     for m in artifacts().values():
         key = m.get("requestHash") or m["id"]
-        if m["example"] or m.get("label") is not None:  # demo: only levels made live from an uploaded spec
+        if LIVE_ONLY and (m["example"] or m.get("label") is not None):  # stage demo: only levels made live
             continue
         if key not in newest or m["created"] > newest[key]["created"]:
             newest[key] = m
@@ -107,6 +107,9 @@ def backrooms_names():
 
 
 STORY = "Find the exit and get out before a watcher catches you."
+# RIGGED_LIVE_ONLY=1 (the stage demo) lists only levels made live from an uploaded spec. By default
+# the shipped examples are listed too, so a fresh clone plays without any keys (make install && make run).
+LIVE_ONLY = os.environ.get("RIGGED_LIVE_ONLY") == "1"
 
 
 def summary(man):
