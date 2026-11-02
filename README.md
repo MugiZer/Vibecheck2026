@@ -182,7 +182,7 @@ Repository theorems, judged by `lake comparator` (see `Verification/`):
 | `upload_fixed_shape` | Every stored path is `uploads/<32 lowercase hex digits>/UserSpec.lean`, so it cannot leave `uploads/`. |
 | `upload_never_over_limit` | The bytes the gate lets through never add up to more than the limit, for any chunking. |
 | `upload_accepted_iff_within_limit` | An upload is accepted exactly when it fits: the limit is accepted, one byte more is rejected. |
-| `upload_accepted_writes_everything` | An accepted upload is written in full, in order. |
+| `upload_accepted_writes_everything` | For an accepted upload, the gate passes every chunk through, in order (a statement about chunk sizes). |
 | `decor_only_allowed_classes` | In an accepted model, every instance at every level has a class from the allowlist. |
 | `decor_no_bad_classes` | An accepted model holds none of 59 classes from the threat list: no script, explosion, seat, spawn, prompt, text, sound, light, effect or special mesh. |
 | `decor_top_is_model` | The top instance of an accepted model is a Model. |

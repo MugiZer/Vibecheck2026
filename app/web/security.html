@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Upload security, proved in Lean</title>
+<link rel="stylesheet" href="/static/style.css">
+<style>
+  main { max-width: 980px; margin: 0 auto; padding: 32px 20px 64px; }
+  table { border-collapse: collapse; width: 100%; background: var(--sheet); }
+  td { border: 1px solid var(--line); padding: 8px 10px; vertical-align: top; }
+  pre { background: var(--sheet); border: 1px solid var(--line); padding: 14px; overflow-x: auto;
+        font: 13px/1.5 var(--mono); }
+  .path { color: var(--soft); font-family: var(--mono); margin: -8px 0 8px; }
+</style></head>
+<body><main>
+<h1>Upload security, proved in Lean</h1>
+<p>Five theorems about the upload gate. <code>make verify</code> checks each one with
+<code>lake comparator</code> against the statements in <code>Verification/Challenge.lean</code>,
+and allows no axioms beyond Lean's standard three.</p>
+<table><tr><td><code>upload_ignores_client_name</code></td><td>The file name a client sends never changes where its upload is stored.</td></tr><tr><td><code>upload_fixed_shape</code></td><td>Every stored path is `uploads/&lt;32 lowercase hex digits&gt;/UserSpec.lean`, so it cannot leave `uploads/`.</td></tr><tr><td><code>upload_never_over_limit</code></td><td>The bytes the gate lets through never add up to more than the limit, for any chunking.</td></tr><tr><td><code>upload_accepted_iff_within_limit</code></td><td>An upload is accepted exactly when it fits: the limit is accepted, one byte more is rejected.</td></tr><tr><td><code>upload_accepted_writes_everything</code></td><td>For an accepted upload, the gate passes every chunk through, in order (a statement about chunk sizes).</td></tr></table>
+<p><strong>Not proved:</strong> the gate's file-system calls and read loop, the Python HTTP
+handler, and the sandbox that runs uploaded Lean. <code>make check</code> tests these through the
+real endpoints, for example an upload named <code>../../../../tmp/evil.lean</code> and an upload one
+byte over the limit.</p>
+<h2>The code the upload gate runs</h2><p class=path>app/upload/Upload/Store.lean</p><p>The gate is a compiled Lean program. It calls destination and admit on every upload.</p><pre>/-!
+# Upload storage decisions
+
+The upload gate uses these two functions on the real upload path. The proofs
+in `Specs/UploadSpec` are about these exact functions.
+-/
+
+namespace Upload
+
+/-- A lowercase hexadecimal digit: `0`-`9` or `a`-`f`. -/
+def isHexDigit (c : Char) : Bool := (&#x27;0&#x27; ≤ c &amp;&amp; c ≤ &#x27;9&#x27;) || (&#x27;a&#x27; ≤ c &amp;&amp; c ≤ &#x27;f&#x27;)
+
+/-- A server-made upload id: exactly 32 lowercase hexadecimal digits. -/
+def validId (id : String) : Bool := id.toList.length == 32 &amp;&amp; id.toList.all isHexDigit
+
+/-- The one file name every upload is stored under. -/
+def storedName : String := &quot;UserSpec.lean&quot;
+
+/-- Where an upload is stored: `uploads/&lt;id&gt;/UserSpec.lean`. The file name the
+client sent is ignored on purpose, so it cannot choose the path. -/
+def destination (id : String) (_clientName : String) : Option String :=
+  if validId id then some (&quot;uploads/&quot; ++ id ++ &quot;/&quot; ++ storedName) else none
+
+/-- What to do with the next chunk of an upload, given the bytes already
+accepted: keep it and return the new total, or reject the whole upload. -/
+def admit (limit used size : Nat) : Option Nat :=
+  if used + size ≤ limit then some (used + size) else none
+
+/-- Feed an upload&#x27;s chunk sizes through `admit`, as the gate does. Returns the
+chunks it lets the gate write, and whether the whole upload was accepted. -/
+def gate (limit : Nat) : List Nat → Nat → List Nat × Bool
+  | [], _ =&gt; ([], true)
+  | c :: cs, used =&gt;
+    match admit limit used c with
+    | some used&#x27; =&gt; let r := gate limit cs used&#x27;; (c :: r.1, r.2)
+    | none =&gt; ([], false)
+
+end Upload
+</pre><h2>Spec: an upload cannot choose where it is stored</h2><p class=path>Specs/UploadSpec/Destination.lean</p><pre>import Upload.Store
+
+/-!
+# Spec: an upload cannot choose where it is stored
+
+The client sends a file name. That name must have no effect on where the file
+is written, and every path the server writes to must have one fixed shape.
+-/
+
+namespace UploadSpec
+
+/-- Changing the file name the client sends never changes the destination. -/
+def IgnoresClientName : Prop :=
+  ∀ (id nameA nameB : String), Upload.destination id nameA = Upload.destination id nameB
+
+/-- Every destination the server accepts is `uploads/&lt;id&gt;/UserSpec.lean`, where
+`id` is 32 lowercase hexadecimal digits. Such an id holds no `/` and no `.`,
+so the path has exactly three parts and cannot climb out of `uploads/`. -/
+def FixedShape : Prop :=
+  ∀ (id name path : String), Upload.destination id name = some path →
+    path = &quot;uploads/&quot; ++ id ++ &quot;/&quot; ++ &quot;UserSpec.lean&quot; ∧
+    id.toList.length = 32 ∧
+    ∀ c ∈ id.toList, c ≠ &#x27;/&#x27; ∧ c ≠ &#x27;.&#x27; ∧ ((&#x27;0&#x27; ≤ c ∧ c ≤ &#x27;9&#x27;) ∨ (&#x27;a&#x27; ≤ c ∧ c ≤ &#x27;f&#x27;))
+
+end UploadSpec
+</pre><h2>Spec: an upload cannot be larger than the limit</h2><p class=path>Specs/UploadSpec/Limit.lean</p><pre>import Upload.Store
+
+/-!
+# Spec: an upload cannot be larger than the limit
+
+The gate reads an upload in chunks and asks `Upload.admit` about each chunk
+before writing it. These statements are about `Upload.gate`, which feeds a list
+of chunk sizes through `admit` in the same way.
+-/
+
+namespace UploadSpec
+
+/-- The total of a list of chunk sizes. -/
+def total (chunks : List Nat) : Nat := chunks.foldr (· + ·) 0
+
+/-- The bytes the gate lets through never add up to more than the limit, for
+any sequence of chunks. -/
+def NeverOverLimit : Prop :=
+  ∀ (limit : Nat) (chunks : List Nat), total (Upload.gate limit chunks 0).1 ≤ limit
+
+/-- An upload is accepted exactly when its total size is at most the limit. A
+file of exactly the limit is accepted; one byte more is rejected. -/
+def AcceptedIffWithinLimit : Prop :=
+  ∀ (limit : Nat) (chunks : List Nat),
+    (Upload.gate limit chunks 0).2 = true ↔ total chunks ≤ limit
+
+/-- When an upload is accepted, every chunk is written, in order. -/
+def AcceptedWritesEverything : Prop :=
+  ∀ (limit : Nat) (chunks : List Nat),
+    (Upload.gate limit chunks 0).2 = true → (Upload.gate limit chunks 0).1 = chunks
+
+end UploadSpec
+</pre><h2>The proofs, with good and bad examples</h2><p class=path>Specs/UploadSpec/Proofs.lean</p><p>Lean&#x27;s kernel checks every proof and every example. A false example would stop the build.</p><pre>import UploadSpec.Destination
+import UploadSpec.Limit
+
+/-! Proofs of the upload specs, with examples that meet every hypothesis and
+examples of bad behaviour the specs rule out. -/
+
+namespace UploadSpec
+open Upload
+
+theorem ignoresClientName : IgnoresClientName := fun _ _ _ =&gt; rfl
+
+theorem fixedShape : FixedShape := by
+  intro id name path h
+  simp only [destination] at h
+  split at h
+  · rename_i hv
+    cases h
+    simp only [validId, Bool.and_eq_true, beq_iff_eq, List.all_eq_true] at hv
+    refine ⟨by simp [storedName, String.append_assoc], hv.1, fun c hc =&gt; ?_⟩
+    have hd := hv.2 c hc
+    simp only [isHexDigit, Bool.or_eq_true, Bool.and_eq_true, decide_eq_true_eq] at hd
+    refine ⟨?_, ?_, hd⟩ &lt;;&gt; rintro rfl &lt;;&gt; simp at hd
+  · cases h
+
+theorem gate_written_le : ∀ (limit used : Nat) (chunks : List Nat), used ≤ limit →
+    used + total (gate limit chunks used).1 ≤ limit
+  | _, used, [], h =&gt; by simpa [gate, total] using h
+  | limit, used, c :: cs, h =&gt; by
+    by_cases hle : used + c ≤ limit
+    · have ih := gate_written_le limit (used + c) cs hle
+      simp only [gate, admit, hle, ite_true, total, List.foldr_cons] at ih ⊢
+      omega
+    · simp [gate, admit, hle, total, h]
+
+theorem neverOverLimit : NeverOverLimit := fun limit chunks =&gt; by
+  simpa using gate_written_le limit 0 chunks (Nat.zero_le _)
+
+theorem gate_accepts_iff : ∀ (limit used : Nat) (chunks : List Nat), used ≤ limit →
+    ((gate limit chunks used).2 = true ↔ used + total chunks ≤ limit)
+  | _, used, [], h =&gt; by simpa [gate, total] using h
+  | limit, used, c :: cs, _ =&gt; by
+    by_cases hle : used + c ≤ limit
+    · have ih := gate_accepts_iff limit (used + c) cs hle
+      simp only [gate, admit, hle, ite_true, total, List.foldr_cons] at ih ⊢
+      rw [ih]
+      omega
+    · simp only [gate, admit, hle, ite_false, total, List.foldr_cons, Bool.false_eq_true, false_iff]
+      omega
+
+theorem acceptedIffWithinLimit : AcceptedIffWithinLimit := fun limit chunks =&gt; by
+  simpa using gate_accepts_iff limit 0 chunks (Nat.zero_le _)
+
+theorem gate_accepted_all : ∀ (limit used : Nat) (chunks : List Nat),
+    (gate limit chunks used).2 = true → (gate limit chunks used).1 = chunks
+  | _, _, [], _ =&gt; rfl
+  | limit, used, c :: cs, h =&gt; by
+    by_cases hle : used + c ≤ limit
+    · simp only [gate, admit, hle, ite_true] at h ⊢
+      exact congrArg (c :: ·) (gate_accepted_all limit (used + c) cs h)
+    · simp [gate, admit, hle] at h
+
+theorem acceptedWritesEverything : AcceptedWritesEverything := fun limit chunks =&gt;
+  gate_accepted_all limit 0 chunks
+
+/-! ## Examples -/
+
+/-- A real id: traversal and absolute file names land in the same place as a plain one. -/
+example : destination &quot;0123456789abcdef0123456789abcdef&quot; &quot;../UserSpec.lean&quot; =
+    destination &quot;0123456789abcdef0123456789abcdef&quot; &quot;spec.lean&quot; := ignoresClientName _ _ _
+example : destination &quot;0123456789abcdef0123456789abcdef&quot; &quot;/etc/passwd&quot; =
+    some &quot;uploads/0123456789abcdef0123456789abcdef/UserSpec.lean&quot; := by decide
+/-- Ids that are not 32 lowercase hex digits are refused. -/
+example : destination &quot;../../../../../../../../etc/passwd&quot; &quot;x&quot; = none := by decide
+example : destination &quot;0123456789ABCDEF0123456789ABCDEF&quot; &quot;x&quot; = none := by decide
+example : destination &quot;0123456789abcdef0123456789abcde/&quot; &quot;x&quot; = none := by decide
+
+/-- Limit 10: exactly 10 bytes is accepted, in any chunking. -/
+example : gate 10 [4, 6] 0 = ([4, 6], true) := by decide
+example : gate 10 [10] 0 = ([10], true) := by decide
+/-- One byte over is rejected, and a chunk that crosses the limit is never written. -/
+example : gate 10 [11] 0 = ([], false) := by decide
+example : gate 10 [4, 7] 0 = ([4], false) := by decide
+example : (gate 10 [4, 7] 0).2 = false := by decide
+/-- The spec rejects a gate that would write a chunk crossing the limit. -/
+example : ¬ (total [4, 7] ≤ 10) := by decide
+
+end UploadSpec
+</pre>
+<p class=path>Copied from the files above at commit 84f3e62 by scripts/security_page.py.</p>
+</main></body></html>
