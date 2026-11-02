@@ -1,6 +1,6 @@
-# Rigged Arcade
+# blox
 
-**Every level ships with a proof. Some are fair. Some are rigged. Lean knows which.**
+to see it live ask me and I will show you a demo because you need roblox studio 
 
 Pick what you want to be true about a maze ("impossible, but looks
 winnable", "can be won", or your own Lean statement), and describe it in a
