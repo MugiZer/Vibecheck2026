@@ -432,18 +432,24 @@ function Scene.build(detail, state)
 	Scene.update(state)
 
 	local props = placeProps(decorFolder, detail, levelDecor, isWall)
-	-- Floor props the brief asks for ("floor: <name> every <n> tiles", n from 2 to 9): a checked clone of
-	-- PropCache[<name>] lying on every open cell whose index is a multiple of n, but not the start or the
-	-- exit. Visual only, like all decor; the name is only ever a folder name.
-	local floorName, every = string.match(string.lower(tostring(detail.brief or "")), "floor:%s*([^;%.\n]-)%s+every%s+(%d)%s+tiles")
+	-- Floor props the brief asks for ("floor: <name> every <n> tiles", n from 1 to 9, or "floor: <name>
+	-- every tile" for n = 1): a checked clone of PropCache[<name>] lying on every open cell whose index is
+	-- a multiple of n, but not the start or the exit. Visual only, like all decor; the name is only ever
+	-- a folder name.
+	local lowerBrief = string.lower(tostring(detail.brief or ""))
+	local floorName, every = string.match(lowerBrief, "floor:%s*([^;%.\n]-)%s+every%s+(%d)%s+tiles?")
+	if not floorName then
+		floorName = string.match(lowerBrief, "floor:%s*([^;%.\n]-)%s+every%s+tile")
+		every = floorName and "1"
+	end
 	local step = tonumber(every)
-	if floorName and step and step >= 2 and step <= 9 then
+	if floorName and step and step >= 1 and step <= 9 then
 		local cache = dress and dress:FindFirstChild("PropCache")
 		local source = cache and cache:FindFirstChild(floorName)
 		local placedFloor = 0
 		local v = detail.variant
 		for c = 0, v.width * v.height - 1, step do
-			if source and not isWall[c] and c ~= v.start and c ~= v.exit and placedFloor < 60 then
+			if source and not isWall[c] and c ~= v.start and c ~= v.exit and placedFloor < 200 then
 				local clone = checkedClone(source)
 				if clone then
 					inert(clone)
